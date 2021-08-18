@@ -1,19 +1,16 @@
 {
-    "id": "com.mattermost.plugin-starter-template",
-    "name": "Plugin Starter Template",
-    "description": "This plugin serves as a starting point for writing a Mattermost plugin.",
-    "homepage_url": "https://github.com/mattermost/mattermost-plugin-starter-template",
-    "support_url": "https://github.com/mattermost/mattermost-plugin-starter-template/issues",
-    "release_notes_url": "https://github.com/mattermost/mattermost-plugin-starter-template/releases/tag/v0.1.0",
+    "id": "com.quarkslab.e2ee",
+    "name": "E2EE",
+    "description": "TODO descr",
+    "homepage_url": "https://github.com/quarkslab/mattermost-plugin-e2ee",
+    "support_url": "https://github.com/quarkslab/mattermost-plugin-e2ee",
+    "release_notes_url": "https://github.com/mattermost/mattermost-plugin-e2ee/releases/tag/v0.1.0",
     "icon_path": "assets/starter-template-icon.svg",
     "version": "0.1.0",
     "min_server_version": "5.12.0",
     "server": {
         "executables": {
-            "linux-amd64": "server/dist/plugin-linux-amd64",
-            "darwin-amd64": "server/dist/plugin-darwin-amd64",
-            "darwin-arm64": "server/dist/plugin-darwin-arm64",
-            "windows-amd64": "server/dist/plugin-windows-amd64.exe"
+            "linux-amd64": "server/dist/plugin-linux-amd64"
         }
     },
     "webapp": {
@@ -22,6 +19,23 @@
     "settings_schema": {
         "header": "",
         "footer": "",
-        "settings": []
+        "settings": [
+            {
+                "key": "GPGKeyServer",
+                "display_name": "URL of the GPG key server:",
+                "type": "text",
+                "help_text": "The URL of the GPG key server to contact to get users' public GPG keys",
+                "placeholder": "https://keys.openpgp.org/",
+                "default": "https://keys.openpgp.org/"
+            },
+            {
+                "key": "BotCanAlwaysPost",
+                "display_name": "Allow Bots to always post:",
+                "type": "bool",
+                "help_text": "We prevent unencrypted messages to be posted on encrypted channels. This allows bot users to override this rule.",
+                "placeholder": "",
+                "default": true
+            }
+        ]
     }
 }

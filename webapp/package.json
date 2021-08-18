@@ -13,7 +13,7 @@
     "check-types": "tsc"
   },
   "devDependencies": {
-    "@babel/cli": "7.10.4",
+    "@babel/cli": "7.14.8",
     "@babel/core": "7.10.4",
     "@babel/plugin-proposal-class-properties": "7.10.4",
     "@babel/plugin-proposal-object-rest-spread": "7.10.4",
@@ -50,24 +50,31 @@
     "eslint-plugin-import": "2.22.0",
     "eslint-plugin-react": "7.20.3",
     "eslint-plugin-react-hooks": "4.0.6",
+    "fake-indexeddb": "3.1.3",
     "file-loader": "6.0.0",
     "identity-obj-proxy": "3.0.0",
     "jest": "26.1.0",
     "jest-canvas-mock": "2.2.0",
     "jest-junit": "11.0.1",
     "mattermost-webapp": "github:mattermost/mattermost-webapp#23f5f93d9f12a7e2b5623e5cee6814366abd9a0f",
-    "node-sass": "4.14.1",
-    "sass-loader": "9.0.2",
+    "node-webcrypto-ossl": "2.1.3",
+    "sass-loader": "^10",
     "style-loader": "1.2.1",
+    "text-encoding-utf-8": "1.0.2",
     "webpack": "4.43.0",
     "webpack-cli": "3.3.12"
   },
   "dependencies": {
+    "@types/openpgp": "4.4.18",
+    "base64-arraybuffer": "1.0.1",
     "core-js": "3.6.5",
-    "mattermost-redux": "5.27.0",
+    "mattermost-redux": "5.33.1",
+    "openpgp": "4.10.10",
     "react": "16.13.1",
     "react-redux": "7.2.0",
     "redux": "4.0.5",
+    "redux-mock-store": "1.5.4",
+    "sass": "1.38.2",
     "typescript": "3.9.6"
   },
   "jest": {
@@ -105,7 +112,8 @@
       "node_modules/(?!react-native|react-router|mattermost-webapp)"
     ],
     "setupFiles": [
-      "jest-canvas-mock"
+      "jest-canvas-mock",
+      "fake-indexeddb/auto"
     ],
     "setupFilesAfterEnv": [
       "<rootDir>/tests/setup.tsx"

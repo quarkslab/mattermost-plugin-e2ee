@@ -86,6 +86,12 @@ module.exports = {
         'prop-types': 'PropTypes',
         'react-bootstrap': 'ReactBootstrap',
         'react-router-dom': 'ReactRouterDom',
+        'node-webcrypto-ossl': {
+            commonjs: 'node-webcrypto-ossl',
+        },
+        'fake-indexeddb': {
+            commonjs: 'fake-indexeddb',
+        },
     },
     output: {
         devtoolNamespace: PLUGIN_ID,
