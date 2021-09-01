@@ -156,12 +156,12 @@ export default class Plugin {
 
     private sendEphemeralPost(msg: string, chanID: string) {
         // @ts-ignore
-        sendEphemeralPost(msg, chanID)(this.store!.dispatch, this.store!.getState);
+        this.store!.dispatch(sendEphemeralPost(msg, chanID));
     }
 
     private async getUserIdsInChannel(chanID: string): Promise<MyActionResult> {
         // @ts-ignore
-        const {data, error} = await UserActions.getProfilesInChannel(chanID, 0)(this.store!.dispatch, this.store!.getState);
+        const {data, error} = await this.store!.dispatch(UserActions.getProfilesInChannel(chanID, 0));
         if (error) {
             return {error};
         }
@@ -178,7 +178,7 @@ export default class Plugin {
         const lastMethod = this.getLastEncryptionMethodForChannel(chanID);
 
         // @ts-ignore
-        const {data: method, error: errEM} = await getChannelEncryptionMethod(chanID)(this.store!.dispatch, this.store!.getState);
+        const {data: method, error: errEM} = await this.store!.dispatch(getChannelEncryptionMethod(chanID));
         if (errEM) {
             return {error: {message: 'Unable to get channel encryption status: ' + errEM}};
         }
@@ -196,7 +196,7 @@ export default class Plugin {
         this.setLastEncryptionMethodForChannel(chanID, method);
         if (method === 'p2p') {
             // @ts-ignore
-            const {data: pubkeys, error: errPK} = await getPubKeys(users)(this.store!.dispatch, this.store!.getState);
+            const {data: pubkeys, error: errPK} = await this.store.dispatch(getPubKeys(users));
             if (errPK) {
                 return {error: {message: 'Unable to get the public keys of the channel members: ' + errPK}};
             }

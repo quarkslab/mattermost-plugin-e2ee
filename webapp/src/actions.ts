@@ -69,7 +69,7 @@ export function getChannelEncryptionMethod(chanID: string): ActionFunc {
 }
 
 // From mattermost-plugin-anonymous
-export function sendEphemeralPost(message: string, channelId: string) {
+export function sendEphemeralPost(message: string, channelId: string): ActionFunc {
     return (dispatch: DispatchFunc, getState: GetStateFunc) => {
         const timestamp = Date.now();
         const post = {
@@ -90,5 +90,7 @@ export function sendEphemeralPost(message: string, channelId: string) {
             data: post,
             channelId,
         });
+
+        return {data: true};
     };
 }
