@@ -186,13 +186,21 @@ func (p *Plugin) KVGetChanEncryptionMethod(chanID string) ChanEncryptionMethod {
 
 func (p *Plugin) KVSetChanEncryptionMethodIfDifferent(chanID string, newMethod ChanEncryptionMethod) (bool, *model.AppError) {
 	key := ChanEncryptionMethodKey(chanID)
-	otherMethod := ChanEncryptionMethodNone
+	nmJS, _ := json.Marshal(newMethod)
+	appErr := p.API.KVSet(key, nmJS)
+	if appErr != nil {
+		return false, appErr
+	}
+	return true, nil
+	// AG: TODO: I don't understand why KVCompareAndSet returns false if the key
+	// doesn't exist
+	/*otherMethod := ChanEncryptionMethodNone
 	if newMethod == ChanEncryptionMethodNone {
 		otherMethod = ChanEncryptionMethodP2P
 	}
 	omJS, _ := json.Marshal(otherMethod)
 	nmJS, _ := json.Marshal(newMethod)
-	return p.API.KVCompareAndSet(key, omJS, nmJS)
+	return p.API.KVCompareAndSet(key, omJS, nmJS)*/
 }
 
 type ChanEncryptionMethodResponse struct {

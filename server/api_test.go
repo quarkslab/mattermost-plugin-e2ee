@@ -259,8 +259,7 @@ func Test_plugin_ServeHTTP_SetChannelEncryptionMethodWillChange(t *testing.T) {
 	mockAPI := plugintest.API{}
 	// Channel status never set
 	p2p, _ := json.Marshal(ChanEncryptionMethodP2P)
-	none, _ := json.Marshal(ChanEncryptionMethodNone)
-	mockAPI.On("KVCompareAndSet", ChanEncryptionMethodKey(chanID), none, p2p).Return(true, nil)
+	mockAPI.On("KVSet", ChanEncryptionMethodKey(chanID), p2p).Return(nil)
 	// User is a not member of the channel
 	mockAPI.On("GetChannelMember", chanID, userID).Return(&model.ChannelMember{}, nil)
 	mockAPI.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(&model.Post{}, nil)
@@ -290,6 +289,7 @@ func Test_plugin_ServeHTTP_SetChannelEncryptionMethodWillChange(t *testing.T) {
 	RunTests(&tests, t, &mockAPI)
 }
 
+/*
 func Test_plugin_ServeHTTP_SetChannelEncryptionMethodWillNotChange(t *testing.T) {
 	const chanID = "chan1"
 	const userID = "user1"
@@ -320,6 +320,7 @@ func Test_plugin_ServeHTTP_SetChannelEncryptionMethodWillNotChange(t *testing.T)
 	}
 	RunTests(&tests, t, &mockAPI)
 }
+*/
 
 func Test_plugin_ServeHTTP_SetChannelEncryptionMethodUnauthorized(t *testing.T) {
 	const chanID = "chan1"
