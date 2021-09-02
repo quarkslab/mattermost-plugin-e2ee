@@ -14,7 +14,7 @@ func (p *Plugin) MessageWillBePosted(c *plugin.Context, post *model.Post) (*mode
 	}
 
 	// Nothing to further check if we are not encrypting that channel
-	encrMeth := p.KVGetChanEncryptionMethod(post.ChannelId)
+	encrMeth := p.ChanEncrMethods.get(post.ChannelId)
 	if encrMeth == ChanEncryptionMethodNone {
 		return nil, ""
 	}

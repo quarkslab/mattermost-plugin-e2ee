@@ -25,39 +25,6 @@ type Context struct {
 	UserID string
 }
 
-type ChanEncryptionMethod int
-
-const (
-	ChanEncryptionMethodNone ChanEncryptionMethod = 0
-	ChanEncryptionMethodP2P  ChanEncryptionMethod = 1
-)
-
-func ChanEncryptionMethodKey(chanID string) string {
-	return fmt.Sprintf("chanEncrMethod:%s", chanID)
-}
-
-func ChanEncryptionMethodString(m ChanEncryptionMethod) string {
-	switch m {
-	case ChanEncryptionMethodP2P:
-		return "p2p"
-	case ChanEncryptionMethodNone:
-		return "none"
-	default:
-		return "none"
-	}
-}
-
-func ChanEncryptionMethodFromString(m string) ChanEncryptionMethod {
-	switch m {
-	case "p2p":
-		return ChanEncryptionMethodP2P
-	case "none":
-		return ChanEncryptionMethodNone
-	default:
-		return ChanEncryptionMethodNone
-	}
-}
-
 type PushPubKeyRequest struct {
 	PK        PubKey  `json:"pubkey"`
 	BackupGPG *string `json:"backupGPG"`
@@ -171,38 +138,6 @@ func (p *Plugin) GetPubKeys(w http.ResponseWriter, r *http.Request) {
 	p.WriteJSON(w, res)
 }
 
-func (p *Plugin) KVGetChanEncryptionMethod(chanID string) ChanEncryptionMethod {
-	method, appErr := p.API.KVGet(ChanEncryptionMethodKey(chanID))
-	if appErr != nil {
-		return ChanEncryptionMethodNone
-	}
-	var ret ChanEncryptionMethod
-	err := json.Unmarshal(method, &ret)
-	if err != nil {
-		return ChanEncryptionMethodNone
-	}
-	return ret
-}
-
-func (p *Plugin) KVSetChanEncryptionMethodIfDifferent(chanID string, newMethod ChanEncryptionMethod) (bool, *model.AppError) {
-	key := ChanEncryptionMethodKey(chanID)
-	nmJS, _ := json.Marshal(newMethod)
-	appErr := p.API.KVSet(key, nmJS)
-	if appErr != nil {
-		return false, appErr
-	}
-	return true, nil
-	// AG: TODO: I don't understand why KVCompareAndSet returns false if the key
-	// doesn't exist
-	/*otherMethod := ChanEncryptionMethodNone
-	if newMethod == ChanEncryptionMethodNone {
-		otherMethod = ChanEncryptionMethodP2P
-	}
-	omJS, _ := json.Marshal(otherMethod)
-	nmJS, _ := json.Marshal(newMethod)
-	return p.API.KVCompareAndSet(key, omJS, nmJS)*/
-}
-
 type ChanEncryptionMethodResponse struct {
 	Method string `json:"method"`
 }
@@ -227,7 +162,7 @@ func (p *Plugin) GetChanEncryptionMethod(c *Context, w http.ResponseWriter, r *h
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	method := ChanEncryptionMethodString(p.KVGetChanEncryptionMethod(chanID))
+	method := ChanEncryptionMethodString(p.ChanEncrMethods.get(chanID))
 	p.WriteJSON(w, ChanEncryptionMethodResponse{method})
 }
 
@@ -244,7 +179,7 @@ func (p *Plugin) SetChanEncryptionMethod(c *Context, w http.ResponseWriter, r *h
 	// TODO: check rights
 
 	method := ChanEncryptionMethodFromString(r.URL.Query().Get("method"))
-	changed, appErr := p.KVSetChanEncryptionMethodIfDifferent(chanID, method)
+	changed, appErr := p.ChanEncrMethods.setIfDifferent(chanID, method)
 	if appErr != nil {
 		http.Error(w, appErr.Error(), http.StatusInternalServerError)
 		return
@@ -365,6 +300,8 @@ func (p *Plugin) GetGPGPubKey(c *Context, w http.ResponseWriter, r *http.Request
 }
 
 func (p *Plugin) InitializeAPI() {
+	p.ChanEncrMethods = NewChanEncrMethodDB(p)
+
 	// Inspired by the Github plugin
 	p.router = mux.NewRouter()
 	p.router.Use(p.WithRecovery)

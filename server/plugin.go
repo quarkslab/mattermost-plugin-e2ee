@@ -33,6 +33,8 @@ type Plugin struct {
 
 	BotUserID string
 
+	ChanEncrMethods *ChanEncrMethodDB
+
 	// configurationLock synchronizes access to the configuration.
 	configurationLock sync.RWMutex
 

@@ -55,8 +55,8 @@ func RunTests(tests *[]TestDesc, t *testing.T, mockAPI *plugintest.API) {
 	for _, tt := range *tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := Plugin{}
-			p.InitializeAPI()
 			p.SetAPI(mockAPI)
+			p.InitializeAPI()
 			req := httpTest.CreateHTTPRequest(tt.request)
 			if tt.userID != "" {
 				req.Header.Add("Mattermost-User-ID", tt.userID)
@@ -257,8 +257,9 @@ func Test_plugin_ServeHTTP_SetChannelEncryptionMethodWillChange(t *testing.T) {
 	const userID = "user1"
 
 	mockAPI := plugintest.API{}
-	// Channel status never set
+	none, _ := json.Marshal(ChanEncryptionMethodNone)
 	p2p, _ := json.Marshal(ChanEncryptionMethodP2P)
+	mockAPI.On("KVGet", ChanEncryptionMethodKey(chanID)).Return(none, nil)
 	mockAPI.On("KVSet", ChanEncryptionMethodKey(chanID), p2p).Return(nil)
 	// User is a not member of the channel
 	mockAPI.On("GetChannelMember", chanID, userID).Return(&model.ChannelMember{}, nil)
@@ -289,16 +290,50 @@ func Test_plugin_ServeHTTP_SetChannelEncryptionMethodWillChange(t *testing.T) {
 	RunTests(&tests, t, &mockAPI)
 }
 
-/*
+func Test_plugin_ServeHTTP_SetChannelEncryptionMethodFirstTime(t *testing.T) {
+	const chanID = "chan1"
+	const userID = "user1"
+
+	mockAPI := plugintest.API{}
+	p2p, _ := json.Marshal(ChanEncryptionMethodP2P)
+	mockAPI.On("KVGet", ChanEncryptionMethodKey(chanID)).Return(nil, nil)
+	mockAPI.On("KVSet", ChanEncryptionMethodKey(chanID), p2p).Return(nil)
+	// User is a not member of the channel
+	mockAPI.On("GetChannelMember", chanID, userID).Return(&model.ChannelMember{}, nil)
+	mockAPI.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(&model.Post{}, nil)
+	mockAPI.On("GetUser", userID).Return(&model.User{Username: "myuser"}, nil)
+	mockAPI.On("PublishWebSocketEvent", "channelStateChanged",
+		map[string]interface{}{
+			"chanID": "chan1",
+			"method": "p2p",
+		},
+		&model.WebsocketBroadcast{ChannelId: "chan1"}).Return()
+
+	apiURL := "/api/v1/channel/encryption_method"
+
+	tests := []TestDesc{
+		{
+			name: "success",
+			request: testutils.Request{
+				Method: "POST",
+				URL:    apiURL + "?chanID=" + chanID + "&method=p2p",
+			},
+			expectedResponse: testutils.ExpectedResponse{
+				StatusCode: http.StatusOK,
+			},
+			userID: userID,
+		},
+	}
+	RunTests(&tests, t, &mockAPI)
+}
+
 func Test_plugin_ServeHTTP_SetChannelEncryptionMethodWillNotChange(t *testing.T) {
 	const chanID = "chan1"
 	const userID = "user1"
 
 	mockAPI := plugintest.API{}
-	// Channel status never set
 	p2p, _ := json.Marshal(ChanEncryptionMethodP2P)
-	none, _ := json.Marshal(ChanEncryptionMethodNone)
-	mockAPI.On("KVCompareAndSet", ChanEncryptionMethodKey(chanID), none, p2p).Return(false, nil)
+	mockAPI.On("KVGet", ChanEncryptionMethodKey(chanID)).Return(p2p, nil)
 	// User is a not member of the channel
 	mockAPI.On("GetChannelMember", chanID, userID).Return(&model.ChannelMember{}, nil)
 	mockAPI.On("SendEphemeralPost", mock.AnythingOfType("string"), mock.AnythingOfType("*model.Post")).Return(nil)
@@ -320,7 +355,34 @@ func Test_plugin_ServeHTTP_SetChannelEncryptionMethodWillNotChange(t *testing.T)
 	}
 	RunTests(&tests, t, &mockAPI)
 }
-*/
+
+func Test_plugin_ServeHTTP_SetChannelEncryptionMethodWillNotChangeFirstTime(t *testing.T) {
+	const chanID = "chan1"
+	const userID = "user1"
+
+	mockAPI := plugintest.API{}
+	mockAPI.On("KVGet", ChanEncryptionMethodKey(chanID)).Return(nil, nil)
+	// User is a not member of the channel
+	mockAPI.On("GetChannelMember", chanID, userID).Return(&model.ChannelMember{}, nil)
+	mockAPI.On("SendEphemeralPost", mock.AnythingOfType("string"), mock.AnythingOfType("*model.Post")).Return(nil)
+
+	apiURL := "/api/v1/channel/encryption_method"
+
+	tests := []TestDesc{
+		{
+			name: "success",
+			request: testutils.Request{
+				Method: "POST",
+				URL:    apiURL + "?chanID=" + chanID + "&method=none",
+			},
+			expectedResponse: testutils.ExpectedResponse{
+				StatusCode: http.StatusOK,
+			},
+			userID: userID,
+		},
+	}
+	RunTests(&tests, t, &mockAPI)
+}
 
 func Test_plugin_ServeHTTP_SetChannelEncryptionMethodUnauthorized(t *testing.T) {
 	const chanID = "chan1"
