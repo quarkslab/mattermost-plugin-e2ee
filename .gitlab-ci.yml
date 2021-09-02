@@ -1,0 +1,18 @@
+stages:
+  - tests
+
+tests:
+  image: "$CI_REGISTRY_IMAGE/20210902.0"
+  stage: tests
+  script:
+    - make
+  cache:
+    - key:
+        files:
+          - webapp/package.json
+          - webapp/package-lock.json
+      paths:
+        - webapp/node_modules
+    - key: CI_COMMIT_BRANCH
+      paths:
+        - /root/go/src
