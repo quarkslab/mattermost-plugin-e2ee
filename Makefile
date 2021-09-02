@@ -187,6 +187,9 @@ endif
 ifneq ($(HAS_WEBAPP),)
 	cd webapp && $(NPM) run test;
 endif
+
+.PHONY: test_sync
+test_sync: webapp/node_modules
 ifneq ($(wildcard ./build/sync/plan/.),)
 	cd ./build/sync && $(GO) test -v $(GO_TEST_FLAGS) ./...
 endif
