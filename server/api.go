@@ -211,9 +211,23 @@ func (p *Plugin) SetChanEncryptionMethod(c *Context, w http.ResponseWriter, r *h
 	if method == ChanEncryptionMethodNone {
 		msg = fmt.Sprintf("@all: messages on this channel **aren't encrypted anymore**. Set by @%s", user.Username)
 	} else {
-		// TODO: add the list of people that doesn't have a public key setup
-		// (if it exists)
 		msg = fmt.Sprintf("@all: message on this channel are now encrypted. Set by @%s.\n**WARNING**: people not in this channel won't be able to read the backlog.", user.Username)
+		noPubKeys, appErrMWK := p.GetChannelMembersWithoutKeys(chanID)
+		if appErrMWK != nil {
+			http.Error(w, appErrMWK.Error(), http.StatusInternalServerError)
+			return
+		}
+		if len(noPubKeys) > 0 {
+			msg += "\n**WARNING**: these people in the channel do not have setup an encryption key, and therefore won't be able to read messages:"
+			for _, nokeyUID := range noPubKeys {
+				nokeyUser, appErrU := p.API.GetUser(nokeyUID)
+				if appErrU != nil {
+					http.Error(w, appErrU.Error(), http.StatusInternalServerError)
+					return
+				}
+				msg += " @" + nokeyUser.Username
+			}
+		}
 	}
 
 	post := &model.Post{

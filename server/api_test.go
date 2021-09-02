@@ -252,6 +252,37 @@ func Test_plugin_ServeHTTP_ChannelEncryptionMethodNotMember(t *testing.T) {
 	RunTests(&tests, t, &mockAPI)
 }
 
+func mockAPIUserInChan(mockAPI *plugintest.API, chanID string, userID string) {
+	// User is a member of the channel
+	mockAPI.On("GetChannelMember", chanID, userID).Return(&model.ChannelMember{}, nil)
+	mockAPI.On("GetUser", userID).Return(&model.User{Username: "myuser"}, nil)
+}
+
+func mockAPISetChannelEncryptionSuccess(mockAPI *plugintest.API, chanID string, userID string, method ChanEncryptionMethod) {
+	mockAPIUserInChan(mockAPI, chanID, userID)
+	mockAPI.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(&model.Post{}, nil)
+	mockAPI.On("PublishWebSocketEvent", "channelStateChanged",
+		map[string]interface{}{
+			"chanID": chanID,
+			"method": ChanEncryptionMethodString(method),
+		},
+		&model.WebsocketBroadcast{ChannelId: chanID}).Return()
+
+	// "userNoKey" has no key
+	mockAPI.On("GetUser", "userNoKey").Return(&model.User{Username: "userNoKey"}, nil)
+	maxUsersPerTeam := 100
+	mockAPI.On("GetConfig").Return(&model.Config{TeamSettings: model.TeamSettings{MaxUsersPerTeam: &maxUsersPerTeam}})
+	mockAPI.On("GetChannelMembers", chanID, 0, maxUsersPerTeam).Return(
+		&model.ChannelMembers{
+			{UserId: userID},
+			{UserId: "userNoKey"}}, nil)
+
+	user1Key := PubKey{[]byte{0}, []byte{1}}
+	user1KeyJSON, _ := json.Marshal(user1Key)
+	mockAPI.On("KVGet", StoreKeyPubKey(userID)).Return(user1KeyJSON, nil)
+	mockAPI.On("KVGet", StoreKeyPubKey("userNoKey")).Return(nil, nil)
+}
+
 func Test_plugin_ServeHTTP_SetChannelEncryptionMethodWillChange(t *testing.T) {
 	const chanID = "chan1"
 	const userID = "user1"
@@ -261,16 +292,7 @@ func Test_plugin_ServeHTTP_SetChannelEncryptionMethodWillChange(t *testing.T) {
 	p2p, _ := json.Marshal(ChanEncryptionMethodP2P)
 	mockAPI.On("KVGet", ChanEncryptionMethodKey(chanID)).Return(none, nil)
 	mockAPI.On("KVSet", ChanEncryptionMethodKey(chanID), p2p).Return(nil)
-	// User is a not member of the channel
-	mockAPI.On("GetChannelMember", chanID, userID).Return(&model.ChannelMember{}, nil)
-	mockAPI.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(&model.Post{}, nil)
-	mockAPI.On("GetUser", userID).Return(&model.User{Username: "myuser"}, nil)
-	mockAPI.On("PublishWebSocketEvent", "channelStateChanged",
-		map[string]interface{}{
-			"chanID": "chan1",
-			"method": "p2p",
-		},
-		&model.WebsocketBroadcast{ChannelId: "chan1"}).Return()
+	mockAPISetChannelEncryptionSuccess(&mockAPI, chanID, userID, ChanEncryptionMethodP2P)
 
 	apiURL := "/api/v1/channel/encryption_method"
 
@@ -298,16 +320,7 @@ func Test_plugin_ServeHTTP_SetChannelEncryptionMethodFirstTime(t *testing.T) {
 	p2p, _ := json.Marshal(ChanEncryptionMethodP2P)
 	mockAPI.On("KVGet", ChanEncryptionMethodKey(chanID)).Return(nil, nil)
 	mockAPI.On("KVSet", ChanEncryptionMethodKey(chanID), p2p).Return(nil)
-	// User is a not member of the channel
-	mockAPI.On("GetChannelMember", chanID, userID).Return(&model.ChannelMember{}, nil)
-	mockAPI.On("CreatePost", mock.AnythingOfType("*model.Post")).Return(&model.Post{}, nil)
-	mockAPI.On("GetUser", userID).Return(&model.User{Username: "myuser"}, nil)
-	mockAPI.On("PublishWebSocketEvent", "channelStateChanged",
-		map[string]interface{}{
-			"chanID": "chan1",
-			"method": "p2p",
-		},
-		&model.WebsocketBroadcast{ChannelId: "chan1"}).Return()
+	mockAPISetChannelEncryptionSuccess(&mockAPI, chanID, userID, ChanEncryptionMethodP2P)
 
 	apiURL := "/api/v1/channel/encryption_method"
 
