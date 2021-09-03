@@ -1,7 +1,36 @@
-div.e2ee_post p {
+.e2ee_post p {
   display: inline;
 }
-div.e2ee_post span {
-  padding-left: 2px;
-  padding-right: 2px;
+.e2ee_post {
+  display: flex;
+} 
+.e2ee_post_header {
+  font-size: .75em;
+  padding: .3em;
+  background-color: #a3c6a359;
+  margin-right: .6em;
+  padding-left: .5em;
+  border-right: outset;
+  border-color: #2f2;
+  border-top-left-radius: 3px;
+  border-bottom-left-radius: 3px;
+}
+.e2ee_post_header.e2ee__error {
+  border-color: red;
+  background-color: #d52f2f;
+}
+.e2ee_post_body {
+  width: 100%;
+}
+.e2ee_post_body.e2ee__error {
+  color: red;
+}
+.e2ee_post_body__decrypting {
+  background-image: url(./images/loader.gif);
+  background-repeat: no-repeat;
+  background-size: contain;
+  height: 1em;
+}
+.e2ee__hidden {
+  display: none;
 }

@@ -2,14 +2,12 @@
 
 import PropTypes from 'prop-types';
 import React, {useEffect, useState} from 'react';
-import {ActionResult} from 'mattermost-redux/types/actions';
 
 // @ts-ignore
 const {formatText, messageHtmlToComponent} = window.PostUtils;
 
 import {decryptPost} from 'e2ee_post';
-import {getPubKeys} from 'actions';
-import {E2EEUnknownRecipient, PrivateKeyMaterial} from 'e2ee';
+import {E2EEUnknownRecipient} from 'e2ee';
 
 import {E2EEPostProps} from './index';
 import './e2ee_post.css';
@@ -17,18 +15,24 @@ import './e2ee_post.css';
 export const E2EEPost: React.FC<E2EEPostProps> = (props) => {
     const {post, privkey, actions} = props;
 
-    // TODO: "..." moving dots while decrypting
-    const [msgText, setMsgText] = useState('Decrypting...');
-    const [bgColor, setBgColor] = useState('bg');
+    const [msgText, setMsgText] = useState('');
+    const [headerClasses, setHeaderClasses] = useState('e2ee_post_header e2ee__hidden');
+    const [postClasses, setPostClasses] = useState('e2ee_post_body e2ee_post_body__decrypting');
 
     const setMsgSuccess = (text: string) => {
-        const ftxt = messageHtmlToComponent(formatText(text));
-        setMsgText(ftxt);
-        setBgColor('#ffff0040');
+        if (text.length > 0) {
+            const ftxt = messageHtmlToComponent(formatText(text));
+            setMsgText(ftxt);
+            setHeaderClasses('e2ee_post_header');
+            setPostClasses('e2ee_post_body');
+        } else {
+            setPostClasses('e2ee_post e2ee__hidden');
+        }
     };
     const setMsgError = (text: string) => {
         setMsgText(text);
-        setBgColor('#ff000040');
+        setPostClasses('e2ee_post_body e2ee__error');
+        setHeaderClasses('e2ee_post_header e2ee__error');
     };
 
     useEffect(() => {
@@ -68,7 +72,8 @@ export const E2EEPost: React.FC<E2EEPostProps> = (props) => {
 
     return (
         <div className='e2ee_post'>
-            <span style={{backgroundColor: bgColor}}>{'E2EE'}</span>{' | '}{msgText}
+            <div className={headerClasses}>{'🔐'}</div>
+            <div className={postClasses}>{msgText}</div>
         </div>
     );
 };
