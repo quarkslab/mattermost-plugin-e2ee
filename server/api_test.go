@@ -73,6 +73,8 @@ func Test_plugin_ServeHTTP_PushPubKey(t *testing.T) {
 	// KVSet always work
 	mockAPI.On("KVSet", "pubkey:user1", mock.AnythingOfType("[]uint8")).Return(nil)
 	mockAPI.On("KVDelete", "backup_gpg:user1").Return(nil)
+	mockAPI.On("PublishWebSocketEvent", "newPubkey", mock.Anything,
+		&model.WebsocketBroadcast{OmitUsers: map[string]bool{"user1": true}})
 	apiURL := "/api/v1/pubkey/push"
 
 	validPubKey := GenerateValidPubKey()

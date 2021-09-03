@@ -4,8 +4,7 @@ import {StateID} from './constants';
 import {PrivateKeyMaterial, PublicKeyMaterial} from './e2ee';
 
 export interface CachedPubKey {
-    data: PublicKeyMaterial;
-    lastUpdate: number;
+    data: PublicKeyMaterial | null;
 }
 
 export type PubKeysState = Map<string, CachedPubKey>;

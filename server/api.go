@@ -53,23 +53,29 @@ func (p *Plugin) PushPubKey(c *Context, w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	pubkey := req.PK
+	pubkey := &req.PK
 	if !pubkey.Validate() {
 		http.Error(w, "invalid elliptic curve key", http.StatusBadRequest)
 		return
 	}
 
-	data, err := json.Marshal(pubkey)
+	pubkeyData, err := json.Marshal(pubkey)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	appErr := p.API.KVSet(StoreKeyPubKey(userID), data)
+	appErr := p.API.KVSet(StoreKeyPubKey(userID), pubkeyData)
 	if appErr != nil {
 		http.Error(w, appErr.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	p.API.PublishWebSocketEvent("newPubkey",
+		map[string]interface{}{
+			"userID": userID,
+		},
+		&model.WebsocketBroadcast{OmitUsers: map[string]bool{userID: true}})
 
 	kvGPGBackup := StoreBackupGPGKey(userID)
 	if req.BackupGPG == nil {

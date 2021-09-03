@@ -12,37 +12,40 @@ const CACHE_PUBKEY_TIMEOUT = 5 * 1000; // 5s
 export function getPubKeys(userIds: string[]): ActionFunc {
     return async (dispatch: DispatchFunc, getState: GetStateFunc): Promise<ActionResult> => {
         // Find if we have suitable ones in cache
-        let ret = new Map<string, PublicKeyMaterial>();
+        const ret = new Map<string, PublicKeyMaterial>();
         const setIds = new Set(userIds);
 
-        // AG: we can extend GlobalState to add the plugin's state. Let's
+        // AG: we could extend GlobalState to add the plugin's state. Let's
         // ignore the typescrypt error here!
         // @ts-ignore
-        const state_pubkeys = getState()[StateID].pubkeys || null;
-        const now = Date.now();
+        const state_pubkeys = getState()[StateID].pubkeys;
         for (const userId of userIds) {
-            const cached = state_pubkeys.get(userId) || null;
-            if (cached == null) {
+            const cached = state_pubkeys.get(userId);
+            if (typeof cached === 'undefined') {
                 continue;
             }
-            if ((now - cached.lastUpdate) <= CACHE_PUBKEY_TIMEOUT) {
+            if (cached.data !== null) {
                 ret.set(userId, cached.data);
-                setIds.delete(userId);
             }
+            setIds.delete(userId);
         }
         if (setIds.size > 0) {
             try {
                 const apires = await APIClient.getPubKeys(Array.from(setIds));
-                ret = new Map<string, PublicKeyMaterial>([...ret, ...apires]);
+                dispatch(
+                    {
+                        type: PubKeyTypes.RECEIVED_PUBKEYS,
+                        data: apires,
+                    });
+                for (const [userId, pubkey] of apires) {
+                    if (pubkey !== null) {
+                        ret.set(userId, pubkey);
+                    }
+                }
             } catch (error) {
                 return {error};
             }
         }
-        dispatch(
-            {
-                type: PubKeyTypes.RECEIVED_PUBKEYS,
-                data: ret,
-            });
         return {data: ret};
     };
 }

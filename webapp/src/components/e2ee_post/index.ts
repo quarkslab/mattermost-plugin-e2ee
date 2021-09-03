@@ -23,8 +23,6 @@ type Actions = {
 function mapDispatchToProps(dispatch: Dispatch<GenericAction>) {
     return {
         actions: bindActionCreators<ActionCreatorsMapObject<ActionFunc>, Actions>({getPubKeys}, dispatch),
-
-        //actions: bindActionCreators({getPubKeys}, dispatch),
     };
 }
 

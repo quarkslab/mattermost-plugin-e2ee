@@ -21,9 +21,11 @@ export default class ClientClass {
         const data = await resp.json();
         const ret = new Map();
         await Promise.all(Object.entries(data.pubKeys).map(async ([userId, pubKeyData]) => {
+            let pubkey: PublicKeyMaterial | null = null;
             if (pubKeyData !== null) {
-                ret.set(userId, await PublicKeyMaterial.fromJsonable(pubKeyData as PublicKeyMaterialJSON));
+                pubkey = await PublicKeyMaterial.fromJsonable(pubKeyData as PublicKeyMaterialJSON);
             }
+            ret.set(userId, pubkey);
         }));
         return ret;
     }

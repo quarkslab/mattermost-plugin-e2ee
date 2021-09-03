@@ -61,7 +61,7 @@ describe('Reducers.pubkeys', () => {
 
         it('add keys null', () => {
             const state = {
-                pubkeys: new Map([['user1', {data: 'mykey', lastUpdate: 0}]]),
+                pubkeys: new Map([['user1', {data: 'mykey'}]]),
             };
             const action = {
                 type: PubKeyTypes.RECEIVED_PUBKEYS,
@@ -69,8 +69,22 @@ describe('Reducers.pubkeys', () => {
             };
 
             const newState = reducer(state, action);
-            assert.strictEqual(newState.pubkeys.has('user1'), false);
+            assert.strictEqual(newState.pubkeys.get('user1').data, null);
             assert.strictEqual(newState.pubkeys.get('user2').data, 'key2');
+        });
+
+        it('key changed', () => {
+            const state = {
+                pubkeys: new Map([['user1', {data: 'mykey'}], ['user2', {data: 'mykey2'}]]),
+            };
+            const action = {
+                type: PubKeyTypes.PUBKEY_CHANGED,
+                data: 'user1',
+            };
+
+            const newState = reducer(state, action);
+            assert.strictEqual(newState.pubkeys.has('user1'), false);
+            assert.strictEqual(newState.pubkeys.get('user2').data, 'mykey2');
         });
     });
 

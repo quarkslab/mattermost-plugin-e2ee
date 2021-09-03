@@ -11,11 +11,12 @@ import * as UserActions from 'mattermost-redux/actions/users';
 import APIClient from './client';
 import manifest from './manifest';
 import {getServerRoute} from './selectors';
-import {EncrStatutTypes, EventTypes} from './action_types';
+import {EncrStatutTypes, EventTypes, PubKeyTypes} from './action_types';
 import {getPubKeys, getChannelEncryptionMethod, sendEphemeralPost} from './actions';
 import Reducer from './reducers';
 import {E2EE_POST_TYPE, E2EE_CHAN_ENCR_METHOD_NONE, E2EE_CHAN_ENCR_METHOD_P2P} from './constants';
 import E2EEPost from './components/e2ee_post';
+import {PublicKeyMaterial} from './e2ee';
 import {encryptPost} from './e2ee_post';
 import {AppPrivKey, AppPrivKeyIsDifferent} from './privkey';
 // eslint-disable-next-line import/no-unresolved
@@ -37,6 +38,7 @@ export default class Plugin {
         registry.registerSlashCommandWillBePostedHook(this.slashCommand.bind(this));
         registry.registerPostTypeComponent(E2EE_POST_TYPE, E2EEPost);
         registry.registerWebSocketEventHandler('custom_com.quarkslab.e2ee_channelStateChanged', this.channelStateChanged.bind(this));
+        registry.registerWebSocketEventHandler('custom_com.quarkslab.e2ee_newPubkey', this.onNewPubKey.bind(this));
         registry.registerReconnectHandler(this.onReconnect.bind(this));
 
         APIClient.setServerRoute(getServerRoute(store.getState()));
@@ -54,6 +56,13 @@ export default class Plugin {
         await this.store!.dispatch({
             type: EncrStatutTypes.RECEIVED_ENCRYPTION_STATUS,
             data: {chanID: message.data.chanID, method: message.data.method},
+        });
+    }
+
+    private async onNewPubKey(message: any) {
+        await this.store!.dispatch({
+            type: PubKeyTypes.PUBKEY_CHANGED,
+            data: message.data.userID,
         });
     }
 

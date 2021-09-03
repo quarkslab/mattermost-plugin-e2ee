@@ -2,6 +2,7 @@ import keyMirror from 'mattermost-redux/utils/key_mirror';
 
 const PubKeyTypes = keyMirror({
     RECEIVED_PUBKEYS: null,
+    PUBKEY_CHANGED: null,
 });
 
 const PrivKeyTypes = keyMirror({

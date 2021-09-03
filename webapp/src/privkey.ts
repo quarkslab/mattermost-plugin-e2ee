@@ -41,7 +41,7 @@ export class AppPrivKey {
         const userId = this.getCurrentUserId();
 
         // @ts-ignore
-        const {data: pubkeys, error} = await getPubKeys([userId])(this.store.dispatch, this.store.getState);
+        const {data: pubkeys, error} = await this.store.dispatch(getPubKeys([userId]));
         if (error) {
             throw error;
         }

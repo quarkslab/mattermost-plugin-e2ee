@@ -13,12 +13,18 @@ function pubkeys(state: PubKeysState = new Map(), action: GenericAction) {
     case PubKeyTypes.RECEIVED_PUBKEYS: {
         const nextState = new Map([...state]);
         for (const [userId, pubkey] of action.data) {
-            if (pubkey === null) {
-                nextState.delete(userId);
-            } else {
-                nextState.set(userId, {data: pubkey, lastUpdate: Date.now()});
-            }
+            nextState.set(userId, {data: pubkey});
         }
+        return nextState;
+    }
+    case EventTypes.GOT_RECONNECTED: {
+        // If we have been reconnected, clear all known statuses. Indeed, we
+        // could have missed some websockets events.
+        return new Map();
+    }
+    case PubKeyTypes.PUBKEY_CHANGED: {
+        const nextState = new Map([...state]);
+        nextState.delete(action.data);
         return nextState;
     }
     default:
