@@ -1,5 +1,6 @@
 stages:
   - tests
+  - deploy
 
 tests:
   image: "$CI_REGISTRY_IMAGE/20210902.0"
@@ -13,6 +14,20 @@ tests:
           - webapp/package-lock.json
       paths:
         - webapp/node_modules
-    - key: CI_COMMIT_BRANCH
+
+deploy:
+  image: "$CI_REGISTRY_IMAGE/20210902.0"
+  stage: deploy
+  # URL and token are set as gitlab CI variables in
+  # https://gitlab.qb/research-development/tools/mm-e2ee/-/settings/ci_cd
+  script:
+    - make deploy
+  cache:
+    - key:
+        files:
+          - webapp/package.json
+          - webapp/package-lock.json
       paths:
-        - /root/go/src
+        - webapp/node_modules
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == "master"'
