@@ -36,6 +36,10 @@ test('privkey/generateNoGPG', async () => {
         mockImplementation(async () => {
             return null;
         });
+    jest.spyOn(APIClient, 'getPubKeys').
+        mockImplementation(async () => {
+            return new Map();
+        });
     jest.spyOn(APIClient, 'pushPubKey').
         mockImplementation(async (pubKey, backupGPG) => {
             expect(backupGPG).toStrictEqual(null);
@@ -70,6 +74,10 @@ test('privkey/generateWithGPG', async () => {
     jest.spyOn(APIClient, 'getGPGPubKey').
         mockImplementation(async () => {
             return publicKeyArmored;
+        });
+    jest.spyOn(APIClient, 'getPubKeys').
+        mockImplementation(async () => {
+            return new Map();
         });
     jest.spyOn(APIClient, 'pushPubKey').
         mockImplementation(async (pubKey, backupGPG) => {

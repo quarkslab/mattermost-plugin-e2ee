@@ -51,11 +51,7 @@ export class AppPrivKey {
     async import(backupGPG: string, force: boolean): Promise<PrivateKeyMaterial> {
         const key = await gpgParseBackup(backupGPG, false /* exportable */);
         if (!force) {
-            const curpubkey = await this.getUserPubkey();
-            if (curpubkey !== null &&
-                (!(await pubkeyEquals(await key.pubKey(), curpubkey)))) {
-                throw new AppPrivKeyIsDifferent();
-            }
+            await this.checkPrivKey(key);
         }
         await this.setPrivKey(key, true /* store */, backupGPG);
         return key;
@@ -64,6 +60,7 @@ export class AppPrivKey {
     async load() {
         try {
             const key = await PrivateKeyMaterial.load(this.ks, this.getCurrentUserId());
+            await this.checkPrivKey(key);
             await this.setPrivKey(key, false /* store */, null);
             return key;
         } catch (e) {
@@ -71,6 +68,14 @@ export class AppPrivKey {
                 return null;
             }
             throw e;
+        }
+    }
+
+    private async checkPrivKey(key: PrivateKeyMaterial) {
+        const curpubkey = await this.getUserPubkey();
+        if (curpubkey !== null &&
+            (!(await pubkeyEquals(await key.pubKey(), curpubkey)))) {
+            throw new AppPrivKeyIsDifferent();
         }
     }
 

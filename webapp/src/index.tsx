@@ -7,7 +7,6 @@ import {makeGetProfilesInChannel} from 'mattermost-redux/selectors/entities/user
 import * as UserActions from 'mattermost-redux/actions/users';
 
 // eslint-disable-next-line import/no-unresolved
-import {setPluginStore} from 'pluginStore';
 
 import APIClient from './client';
 import manifest from './manifest';
@@ -34,17 +33,21 @@ export default class Plugin {
         this.key = await AppPrivKey.init(store);
 
         registry.registerReducer(Reducer);
-
-        setPluginStore(store);
-        await this.key.load();
-
-        APIClient.setServerRoute(getServerRoute(store.getState()));
-
         registry.registerMessageWillBePostedHook(this.messageWillBePosted.bind(this));
         registry.registerSlashCommandWillBePostedHook(this.slashCommand.bind(this));
         registry.registerPostTypeComponent(E2EE_POST_TYPE, E2EEPost);
         registry.registerWebSocketEventHandler('custom_com.quarkslab.e2ee_channelStateChanged', this.channelStateChanged.bind(this));
         registry.registerReconnectHandler(this.onReconnect.bind(this));
+
+        APIClient.setServerRoute(getServerRoute(store.getState()));
+
+        try {
+            await this.key.load();
+        } catch (e) {
+            if (!(e instanceof AppPrivKeyIsDifferent)) {
+                throw e;
+            }
+        }
     }
 
     private async channelStateChanged(message: any) {
