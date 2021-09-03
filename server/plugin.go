@@ -15,11 +15,12 @@ import (
 const (
 	helpTextHeader = "###### Mattermost E2EE Plugin - Slash command help\n"
 	helpText       = `
-* |/e2ee help| - print this help message
+* |/e2ee help| - print this help message.
 * |/e2ee init [--force] [gpg key fingerprint]| - initialize E2EE for your account. This will generate a new key for your session. Use --force to erase an exisiting key.
-* |/e2ee activate| - encrypt the messages you send in this channel
-* |/e2ee deactivate| - do not encrypt the messages you send in this channel
+* |/e2ee activate| - encrypt the messages you send in this channel.
+* |/e2ee deactivate| - do not encrypt the messages you send in this channel.
 * |/e2ee import [private_key]| - import your private key into this device.
+* |/e2ee show_backup| - show saved encrypted GPG backup.
 `
 	autoCompleteDescription = "Available commands: init import help"
 	autoCompleteHint        = "[command][subcommands]"
@@ -88,6 +89,18 @@ func (p *Plugin) postCommandResponse(args *model.CommandArgs, text string) {
 	_ = p.API.SendEphemeralPost(args.UserId, post)
 }
 
+func (p *Plugin) ShowGPGBackup(args *model.CommandArgs) *model.AppError {
+	backupGPG, appErr := p.API.KVGet(StoreBackupGPGKey(args.UserId))
+	if appErr != nil {
+		return appErr
+	}
+	if backupGPG == nil {
+		return &model.AppError{Message: "unable to find a GPG backup"}
+	}
+	p.postCommandResponse(args, string(backupGPG))
+	return nil
+}
+
 func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
 	split := strings.Fields(args.Command)
 	command := split[0]
@@ -106,6 +119,14 @@ func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*mo
 
 	if action == "help" {
 		p.postCommandResponse(args, helpTextHeader+helpText)
+		return &model.CommandResponse{}, nil
+	}
+
+	if action == "show_backup" {
+		appErr := p.ShowGPGBackup(args)
+		if appErr != nil {
+			return &model.CommandResponse{}, appErr
+		}
 		return &model.CommandResponse{}, nil
 	}
 
