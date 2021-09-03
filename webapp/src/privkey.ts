@@ -18,6 +18,7 @@ export class AppPrivKeyIsDifferent extends Error { }
 
 interface GeneratedKey {
     privkey: PrivateKeyMaterial;
+    backupClear: string;
     backupGPG: string | null;
 }
 
@@ -118,25 +119,23 @@ export class AppPrivKey {
 
     static generate(): ActionFunc {
         return async (dispatch: DispatchFunc, getState: GetStateFunc) => {
+            const privkeyProm = PrivateKeyMaterial.create(true /* extractible */);
             const gpgArmoredPubKey = await APIClient.getGPGPubKey().catch((e) => {
                 return null;
             });
-            let privkey: PrivateKeyMaterial;
+            let privkey: PrivateKeyMaterial = await privkeyProm;
+            const backupClear = await gpgBackupFormat(privkey);
             let backupGPG = null;
-            if (typeof gpgArmoredPubKey == 'undefined' || gpgArmoredPubKey === null) {
-                privkey = await PrivateKeyMaterial.create();
-            } else {
-                // Create a key and save a GPG encrypted backup
-                privkey = await PrivateKeyMaterial.create(true /* extractible */);
-                const backup_clear = await gpgBackupFormat(privkey);
-                backupGPG = await gpgEncrypt(backup_clear, gpgArmoredPubKey);
-
-                // Reimport the key as non extractible
-                privkey = await gpgParseBackup(backup_clear, false /* extractible */);
+            if (typeof gpgArmoredPubKey !== 'undefined' && gpgArmoredPubKey !== null) {
+                // Create a GPG encrypted backup
+                backupGPG = await gpgEncrypt(backupClear, gpgArmoredPubKey);
             }
 
+            // Reimport the key as non extractible
+            privkey = await gpgParseBackup(backupClear, false /* extractible */);
+
             dispatch(AppPrivKey.setPrivKey(privkey, true /* store */, backupGPG));
-            return {data: {privkey, backupGPG}};
+            return {data: {privkey, backupGPG, backupClear}};
         };
     }
 

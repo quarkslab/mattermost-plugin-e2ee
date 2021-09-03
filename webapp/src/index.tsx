@@ -102,15 +102,18 @@ export default class Plugin {
             msg = "A key is already known for your user to the Mattermost server. You can import its backup using /e2ee import.\nYou can use --force to still generate a new key, but you won't be able to read old encrypted messages, and other users won't be able to read your old messages.";
         } else {
             const {data} = await this.dispatch(AppPrivKey.generate());
-            const {privkey, backupGPG} = data;
+            const {privkey, backupGPG, backupClear} = data;
 
             // Push the public key and backup to the server
-            msg = 'A new private key has been generate. ';
+            msg = 'A new private key has been generated. ';
             if (backupGPG === null) {
                 msg += "Unfortunately, we didn't manage to encrypt it with your GPG key.";
             } else {
                 msg += 'You should have received a GPG encrypted backup by mail.';
             }
+            msg += '\n\nHere is also a clear text backup of your private key. You can store this in a secure storage, like KeePass:\n```\n';
+            msg += backupClear;
+            msg += '```\n\n\n**WARNING**: it will not be possible to easily recover this private key once this message disappear. Make sure you have a working backup!';
         }
         this.sendEphemeralPost(msg, ctxArgs.channel_id);
         return {};
