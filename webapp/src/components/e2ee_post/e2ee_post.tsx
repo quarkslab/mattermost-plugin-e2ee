@@ -19,9 +19,13 @@ export const E2EEPost: React.FC<E2EEPostProps> = (props) => {
     const [headerClasses, setHeaderClasses] = useState('e2ee_post_header e2ee__hidden');
     const [postClasses, setPostClasses] = useState('e2ee_post_body e2ee_post_body__decrypting');
 
+    const formatOptions = {
+        atMentions: true,
+    };
+
     const setMsgSuccess = (text: string) => {
         if (text.length > 0) {
-            const ftxt = messageHtmlToComponent(formatText(text));
+            const ftxt = messageHtmlToComponent(formatText(text, formatOptions));
             setMsgText(ftxt);
             setHeaderClasses('e2ee_post_header');
             setPostClasses('e2ee_post_body');
