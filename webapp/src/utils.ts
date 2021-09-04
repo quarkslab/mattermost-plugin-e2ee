@@ -1,3 +1,6 @@
+import {Store} from 'redux';
+import {GlobalState} from 'mattermost-redux/types/store';
+
 export const isNode = typeof process !== 'undefined' &&
   process.versions != null &&
   process.versions.node != null;
@@ -28,4 +31,34 @@ export function eqSet<T>(A: Set<T>, B: Set<T>) {
         }
     }
     return true;
+}
+
+export function arrayBufferEqual(A: ArrayBuffer, B: ArrayBuffer) {
+    const VA = new DataView(A);
+    const VB = new DataView(B);
+    if (VA.byteLength !== VB.byteLength) {
+        return false;
+    }
+    for (let i = 0; i < VA.byteLength; i++) {
+        if (VA.getUint8(i) !== VB.getUint8(i)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+export function observeStore<T>(store: Store, select: (s: GlobalState) => T, onChange: (v: T) => Promise<void>) {
+    let currentState: T;
+
+    async function handleChange() {
+        const nextState = select(store.getState());
+        if (nextState !== currentState) {
+            currentState = nextState;
+            await onChange(currentState);
+        }
+    }
+
+    const unsubscribe = store.subscribe(handleChange);
+    handleChange();
+    return unsubscribe;
 }

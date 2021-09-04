@@ -1,13 +1,13 @@
 import {Store, Action} from 'redux';
 import {GlobalState} from 'mattermost-redux/types/store';
 
-import {StateID} from './constants';
-import {PrivateKeyMaterial, PublicKeyMaterial, pubkeyEquals} from './e2ee';
+import {PrivateKeyMaterial, PublicKeyMaterial, pubkeyEqual} from './e2ee';
 import {KeyStore, KeyStoreError} from './keystore';
 import APIClient from './client';
 import {PrivKeyTypes, PubKeyTypes} from './action_types';
 import {gpgBackupFormat, gpgEncrypt, gpgParseBackup} from './backup_gpg';
 import {getPubKeys} from './actions';
+import {getPluginState} from './selectors';
 
 type StoreTy = Store;
 
@@ -74,7 +74,7 @@ export class AppPrivKey {
     private async checkPrivKey(key: PrivateKeyMaterial) {
         const curpubkey = await this.getUserPubkey();
         if (curpubkey !== null &&
-            (!(await pubkeyEquals(await key.pubKey(), curpubkey)))) {
+            (!(await pubkeyEqual(await key.pubKey(), curpubkey)))) {
             throw new AppPrivKeyIsDifferent();
         }
     }
@@ -108,7 +108,7 @@ export class AppPrivKey {
     }
 
     getPrivKey() {
-        return this.getState()[StateID].privkey || null;
+        return getPluginState(this.getState()).privkey || null;
     }
 
     private async setPrivKey(key: PrivateKeyMaterial, store: boolean, backupGPG: string | null) {

@@ -1,8 +1,9 @@
 import {Store, Action} from 'redux';
 import {GlobalState} from 'mattermost-redux/types/store';
 import {Post} from 'mattermost-redux/types/posts';
-import {getMembersInChannel} from 'mattermost-redux/selectors/entities/common';
+import {getCurrentChannelId} from 'mattermost-redux/selectors/entities/common';
 import {makeGetProfilesInChannel} from 'mattermost-redux/selectors/entities/users';
+import {Client4} from 'mattermost-redux/client';
 
 import * as UserActions from 'mattermost-redux/actions/users';
 
@@ -10,7 +11,7 @@ import * as UserActions from 'mattermost-redux/actions/users';
 
 import APIClient from './client';
 import manifest from './manifest';
-import {getServerRoute} from './selectors';
+import {getServerRoute, selectPubkeys} from './selectors';
 import {EncrStatutTypes, EventTypes, PubKeyTypes} from './action_types';
 import {getPubKeys, getChannelEncryptionMethod, sendEphemeralPost} from './actions';
 import Reducer from './reducers';
@@ -21,7 +22,9 @@ import {encryptPost} from './e2ee_post';
 import {AppPrivKey, AppPrivKeyIsDifferent} from './privkey';
 // eslint-disable-next-line import/no-unresolved
 import {PluginRegistry, ContextArgs} from './types/mattermost-webapp';
-import {MyActionResult} from './types';
+import {MyActionResult, PubKeysState} from './types';
+import {observeStore} from './utils';
+import {pubkeyStore} from './pubkeys_storage';
 
 const b64 = require('base64-arraybuffer');
 
@@ -42,12 +45,33 @@ export default class Plugin {
         registry.registerReconnectHandler(this.onReconnect.bind(this));
 
         APIClient.setServerRoute(getServerRoute(store.getState()));
+        await this.loadKey();
 
+        observeStore(this.store, selectPubkeys, this.checkPubkeys.bind(this));
+    }
+
+    private async loadKey() {
         try {
-            await this.key.load();
+            await this.key!.load();
         } catch (e) {
             if (!(e instanceof AppPrivKeyIsDifferent)) {
                 throw e;
+            }
+        }
+    }
+
+    private async checkPubkeys(pubkeys: PubKeysState) {
+        for (const [userID, pubkey] of pubkeys) {
+            if (pubkey.data === null) {
+                continue;
+            }
+            // eslint-disable-next-line no-await-in-loop
+            if ((await pubkeyStore(userID, pubkey.data))) {
+                const chanID = getCurrentChannelId(this.store!.getState());
+                // eslint-disable-next-line no-await-in-loop
+                const username = (await Client4.getUser(userID)).username;
+                const msg = '**Warning**: public key of @' + username + ' has changed.';
+                this.sendEphemeralPost(msg, chanID);
             }
         }
     }

@@ -1,6 +1,6 @@
 import {webcrypto} from 'webcrypto';
 
-import {concatArrayBuffers, eqSet} from './utils';
+import {concatArrayBuffers, eqSet, arrayBufferEqual} from './utils';
 import {KeyStore} from './keystore';
 
 const b64 = require('base64-arraybuffer');
@@ -198,15 +198,10 @@ export async function getECPubkeyID(pubkey: CryptoKey): Promise<ArrayBuffer> {
     return subtle.digest('SHA-256', data);
 }
 
-export async function pubkeyEquals(A: PublicKeyMaterial, B: PublicKeyMaterial): Promise<boolean> {
-    const idA = new DataView(await A.id());
-    const idB = new DataView(await B.id());
-    for (let i = 0; i < idA.byteLength; i++) {
-        if (idA.getUint8(i) !== idB.getUint8(i)) {
-            return false;
-        }
-    }
-    return true;
+export async function pubkeyEqual(A: PublicKeyMaterial, B: PublicKeyMaterial): Promise<boolean> {
+    const idA = await A.id();
+    const idB = await B.id();
+    return arrayBufferEqual(idA, idB);
 }
 
 export interface EncryptedP2PMessageJSON {

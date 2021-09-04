@@ -1,18 +1,19 @@
 import {connect} from 'react-redux';
 import {ActionCreatorsMapObject, bindActionCreators, Dispatch} from 'redux';
+import {GlobalState} from 'mattermost-redux/types/store';
 import {GenericAction, ActionResult, ActionFunc} from 'mattermost-redux/types/actions';
 import {Post} from 'mattermost-redux/types/posts';
 
 import {getPubKeys} from 'actions';
 import {id as pluginId} from 'manifest';
 import {PluginState} from 'types';
-import {StateID} from '../../constants';
+import {getPluginState} from '../../selectors';
 
 import {E2EEPost} from './e2ee_post';
 
-function mapStateToProps(state: any) {
+function mapStateToProps(state: GlobalState) {
     // @ts-ignore
-    const pstate: PluginState = state[StateID];
+    const pstate: PluginState = getPluginState(state);
     return {privkey: pstate.privkey};
 }
 

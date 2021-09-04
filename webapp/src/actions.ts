@@ -5,6 +5,7 @@ import {PubKeyTypes, EncrStatutTypes} from './action_types';
 import APIClient from './client';
 import {StateID} from './constants';
 import {PublicKeyMaterial} from './e2ee';
+import {getPluginState, selectPubkeys} from './selectors';
 import manifest from './manifest';
 
 const CACHE_PUBKEY_TIMEOUT = 5 * 1000; // 5s
@@ -18,7 +19,7 @@ export function getPubKeys(userIds: string[]): ActionFunc {
         // AG: we could extend GlobalState to add the plugin's state. Let's
         // ignore the typescrypt error here!
         // @ts-ignore
-        const state_pubkeys = getState()[StateID].pubkeys;
+        const state_pubkeys = selectPubkeys(getState());
         for (const userId of userIds) {
             const cached = state_pubkeys.get(userId);
             if (typeof cached === 'undefined') {
@@ -53,7 +54,7 @@ export function getPubKeys(userIds: string[]): ActionFunc {
 export function getChannelEncryptionMethod(chanID: string): ActionFunc {
     return async (dispatch: DispatchFunc, getState: GetStateFunc) => {
         // @ts-ignore
-        const method = getState()[StateID].chansEncrMethod.get(chanID) || null;
+        const method = getPluginState(getState()).chansEncrMethod.get(chanID) || null;
         if (method != null) {
             return {data: method};
         }

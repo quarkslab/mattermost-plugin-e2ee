@@ -1,6 +1,5 @@
 import {GlobalState} from 'mattermost-redux/types/store';
 
-import {StateID} from './constants';
 import {PrivateKeyMaterial, PublicKeyMaterial} from './e2ee';
 
 export interface CachedPubKey {
@@ -12,8 +11,9 @@ export type ChansEncrState = Map<string, string>;
 
 export interface PluginState {
     privkey?: PrivateKeyMaterial;
-    pubkeys?: PubKeysState;
+    pubkeys: PubKeysState;
     chansEncrMethod?: ChansEncrState;
+    enabled?: boolean;
 }
 
 // ActionResult, in v5, is defined as { data: any } | { error: any }, which
