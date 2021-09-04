@@ -67,6 +67,7 @@
   },
   "dependencies": {
     "@types/openpgp": "4.4.18",
+    "@types/react-bootstrap": "0.32.26",
     "base64-arraybuffer": "1.0.1",
     "core-js": "3.6.5",
     "mattermost-redux": "5.33.1",

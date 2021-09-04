@@ -7,10 +7,11 @@ import thunk from 'redux-thunk';
 
 import {AppPrivKey, AppPrivKeyIsDifferent} from '../src/privkey';
 import APIClient from '../src/client';
-import {PubKeyTypes, PrivKeyTypes} from '../src/action_types';
+import {PubKeyTypes, PrivKeyTypes, KSTypes} from '../src/action_types';
 import {PublicKeyMaterial, PrivateKeyMaterial} from '../src/e2ee';
 import {gpgBackupFormat} from '../src/backup_gpg';
 import {StateID} from '../src/constants';
+import {KeyStore} from '../src/keystore';
 
 import {generateGPGKey, initOpenGPG, finiOpenGPG} from './helpers';
 
@@ -29,16 +30,30 @@ const storeInitUser = {
     },
 };
 
-test('privkey/generateNoGPG', async () => {
+async function getStoreInit() {
+    const ret = Object.assign({}, storeInitUser);
+    ret[StateID].ks = await KeyStore.open(ret.entities.users.currentUserId);
+    return ret;
+}
+
+test('privkey/init', async () => {
     const store = testConfigureStore(storeInitUser);
+    const {data: ks} = await store.dispatch(AppPrivKey.init(store));
+
+    expect(store.getActions()).toMatchObject([
+        {
+            type: KSTypes.GOT_KS,
+            data: ks,
+        },
+    ]);
+});
+
+test('privkey/generateNoGPG', async () => {
+    const store = testConfigureStore(await getStoreInit());
 
     jest.spyOn(APIClient, 'getGPGPubKey').
         mockImplementation(async () => {
             return null;
-        });
-    jest.spyOn(APIClient, 'getPubKeys').
-        mockImplementation(async () => {
-            return new Map();
         });
     jest.spyOn(APIClient, 'pushPubKey').
         mockImplementation(async (pubKey, backupGPG) => {
@@ -46,27 +61,20 @@ test('privkey/generateNoGPG', async () => {
             expect(pubKey).toBeInstanceOf(PublicKeyMaterial);
         });
 
-    const appKey = await AppPrivKey.init(store);
-    const {privkey, backupGPG} = await appKey.generate();
+    const {data, error} = await store.dispatch(AppPrivKey.generate());
+    expect(error).toBeUndefined();
+    const {privkey, backupGPG} = data;
 
     expect(store.getActions()).toMatchObject([
         {
             type: PrivKeyTypes.GOT_PRIVKEY,
-            data: privkey,
-        },
-        {
-            type: PubKeyTypes.RECEIVED_PUBKEYS,
-            data: new Map([['myuserID', privkey.pubKey()]]),
+            data: {privkey, pubkey: await privkey.pubKey(), userID: 'myuserID'},
         },
     ]);
-
-    // Test loading back from the key store
-    const loadkey = await appKey.load();
-    expect(loadkey).toBeInstanceOf(PrivateKeyMaterial);
 });
 
 test('privkey/generateWithGPG', async () => {
-    const store = testConfigureStore(storeInitUser);
+    const store = testConfigureStore(await getStoreInit());
 
     initOpenGPG();
     const {privateKeyArmored, publicKeyArmored, revocationCertificate} = await generateGPGKey();
@@ -75,39 +83,28 @@ test('privkey/generateWithGPG', async () => {
         mockImplementation(async () => {
             return publicKeyArmored;
         });
-    jest.spyOn(APIClient, 'getPubKeys').
-        mockImplementation(async () => {
-            return new Map();
-        });
     jest.spyOn(APIClient, 'pushPubKey').
         mockImplementation(async (pubKey, backupGPG) => {
             expect(typeof backupGPG).toBe('string');
             expect(pubKey).toBeInstanceOf(PublicKeyMaterial);
         });
 
-    const appKey = await AppPrivKey.init(store);
-    const {privkey, backupGPG} = await appKey.generate();
+    const {data, error} = await store.dispatch(AppPrivKey.generate());
+    expect(error).toBeUndefined();
+    const {privkey, backupGPG} = data;
 
     finiOpenGPG();
 
     expect(store.getActions()).toMatchObject([
         {
             type: PrivKeyTypes.GOT_PRIVKEY,
-            data: privkey,
-        },
-        {
-            type: PubKeyTypes.RECEIVED_PUBKEYS,
-            data: new Map([['myuserID', privkey.pubKey()]]),
+            data: {privkey, pubkey: await privkey.pubKey(), userID: 'myuserID'},
         },
     ]);
-
-    // Test loading back from the key store
-    const loadkey = await appKey.load();
-    expect(loadkey).toBeInstanceOf(PrivateKeyMaterial);
 });
 
 test('privkey/import', async () => {
-    const store = testConfigureStore(storeInitUser);
+    const store = testConfigureStore(await getStoreInit());
 
     const privkey = await PrivateKeyMaterial.create(true /* extractible */);
     const backup = await gpgBackupFormat(privkey);
@@ -118,23 +115,19 @@ test('privkey/import', async () => {
             expect(pubKey).toStrictEqual(privkey.pubKey());
         });
 
-    const appKey = await AppPrivKey.init(store);
-    const privkeyImp = await appKey.import(backup, true);
+    const {data: privkeyImp, error} = await store.dispatch(AppPrivKey.import(backup, true));
+    expect(error).toBeUndefined();
 
     expect(store.getActions()).toEqual([
         {
             type: PrivKeyTypes.GOT_PRIVKEY,
-            data: privkeyImp,
-        },
-        {
-            type: PubKeyTypes.RECEIVED_PUBKEYS,
-            data: new Map([['myuserID', privkeyImp.pubKey()]]),
+            data: {privkey: privkeyImp, pubkey: privkeyImp.pubKey(), userID: 'myuserID'},
         },
     ]);
 });
 
 test('privkey/importDifferent', async () => {
-    const store = testConfigureStore(storeInitUser);
+    const store = testConfigureStore(await getStoreInit());
 
     const oldprivkey = await PrivateKeyMaterial.create(true /* extractible */);
     const privkey = await PrivateKeyMaterial.create(true /* extractible */);
@@ -145,7 +138,7 @@ test('privkey/importDifferent', async () => {
             return new Map([['myuserID', oldprivkey.pubKey()]]);
         });
 
-    const appKey = await AppPrivKey.init(store);
     const backup = await gpgBackupFormat(privkey);
-    await expect(appKey.import(backup, false)).rejects.toThrow(AppPrivKeyIsDifferent);
+    const {data, error} = await store.dispatch(AppPrivKey.import(backup, false));
+    expect(error).toBeInstanceOf(AppPrivKeyIsDifferent);
 });

@@ -11,9 +11,9 @@ import * as UserActions from 'mattermost-redux/actions/users';
 
 import APIClient from './client';
 import manifest from './manifest';
-import {getServerRoute, selectPubkeys} from './selectors';
+import {getServerRoute, selectPubkeys, selectPrivkey, selectKS} from './selectors';
 import {EncrStatutTypes, EventTypes, PubKeyTypes} from './action_types';
-import {getPubKeys, getChannelEncryptionMethod, sendEphemeralPost} from './actions';
+import {getPubKeys, getChannelEncryptionMethod, sendEphemeralPost, openImportModal} from './actions';
 import Reducer from './reducers';
 import {E2EE_POST_TYPE, E2EE_CHAN_ENCR_METHOD_NONE, E2EE_CHAN_ENCR_METHOD_P2P} from './constants';
 import E2EEPost from './components/e2ee_post';
@@ -25,17 +25,18 @@ import {PluginRegistry, ContextArgs} from './types/mattermost-webapp';
 import {MyActionResult, PubKeysState} from './types';
 import {observeStore} from './utils';
 import {pubkeyStore} from './pubkeys_storage';
+import {KeyStore} from './keystore';
+import E2EEImportModal from './components/e2ee_import_modal';
 
 const b64 = require('base64-arraybuffer');
 
 export default class Plugin {
-    key?: AppPrivKey
     store?: Store
 
     public async initialize(registry: PluginRegistry, store: Store<GlobalState, Action<Record<string, unknown>>>) {
         this.store = store;
-        this.key = await AppPrivKey.init(store);
 
+        registry.registerRootComponent(E2EEImportModal);
         registry.registerReducer(Reducer);
         registry.registerMessageWillBePostedHook(this.messageWillBePosted.bind(this));
         registry.registerSlashCommandWillBePostedHook(this.slashCommand.bind(this));
@@ -45,29 +46,21 @@ export default class Plugin {
         registry.registerReconnectHandler(this.onReconnect.bind(this));
 
         APIClient.setServerRoute(getServerRoute(store.getState()));
-        await this.loadKey();
 
         observeStore(this.store, selectPubkeys, this.checkPubkeys.bind(this));
+
+        // @ts-ignore
+        await store.dispatch(AppPrivKey.init(store));
     }
 
-    private async loadKey() {
-        try {
-            await this.key!.load();
-        } catch (e) {
-            if (!(e instanceof AppPrivKeyIsDifferent)) {
-                throw e;
-            }
-        }
-    }
-
-    private async checkPubkeys(pubkeys: PubKeysState) {
+    private async checkPubkeys(store: Store, pubkeys: PubKeysState) {
         for (const [userID, pubkey] of pubkeys) {
             if (pubkey.data === null) {
                 continue;
             }
             // eslint-disable-next-line no-await-in-loop
             if ((await pubkeyStore(userID, pubkey.data))) {
-                const chanID = getCurrentChannelId(this.store!.getState());
+                const chanID = getCurrentChannelId(store.getState());
                 // eslint-disable-next-line no-await-in-loop
                 const username = (await Client4.getUser(userID)).username;
                 const msg = '**Warning**: public key of @' + username + ' has changed.';
@@ -77,14 +70,14 @@ export default class Plugin {
     }
 
     private async channelStateChanged(message: any) {
-        await this.store!.dispatch({
+        await this.dispatch({
             type: EncrStatutTypes.RECEIVED_ENCRYPTION_STATUS,
             data: {chanID: message.data.chanID, method: message.data.method},
         });
     }
 
     private async onNewPubKey(message: any) {
-        await this.store!.dispatch({
+        await this.dispatch({
             type: PubKeyTypes.PUBKEY_CHANGED,
             data: message.data.userID,
         });
@@ -92,7 +85,7 @@ export default class Plugin {
 
     private async onReconnect() {
         // Dispatch that we have been reconnected
-        this.store!.dispatch({
+        this.dispatch({
             type: EventTypes.GOT_RECONNECTED,
             data: {},
         });
@@ -101,14 +94,15 @@ export default class Plugin {
     private async handleInit(cmdArgs: Array<string>, ctxArgs: ContextArgs) {
         let msg;
         const force = cmdArgs[0] === '--force';
-        const keyInBrowser = this.key!.exists();
-        const pubKeyRegistered = (await this.key!.getUserPubkey()) !== null;
+        const keyInBrowser = AppPrivKey.exists(this.store!.getState());
+        const pubKeyRegistered = (await this.dispatch(AppPrivKey.getUserPubkey())) !== null;
         if (!force && keyInBrowser) {
             msg = 'A private key is already present in your browser, so we are not overriding it. Use --force to erase it.';
         } else if (!force && pubKeyRegistered) {
             msg = "A key is already known for your user to the Mattermost server. You can import its backup using /e2ee import.\nYou can use --force to still generate a new key, but you won't be able to read old encrypted messages, and other users won't be able to read your old messages.";
         } else {
-            const {privkey, backupGPG} = await this.key!.generate();
+            const {data} = await this.dispatch(AppPrivKey.generate());
+            const {privkey, backupGPG} = data;
 
             // Push the public key and backup to the server
             msg = 'A new private key has been generate. ';
@@ -151,7 +145,7 @@ export default class Plugin {
         case 'init':
             return this.handleInit(cmdArgs, ctxArgs);
 
-        // TODO: move these two are pure slash commands
+            // TODO: move these two are pure slash commands
         case 'activate': {
             await this.setChannelEncryptionMethod(chanID, E2EE_CHAN_ENCR_METHOD_P2P);
             return {};
@@ -161,29 +155,8 @@ export default class Plugin {
             return {};
         }
         case 'import': {
-            if (cmdArgs.length === 0) {
-                return {message: '/e2ee', args: ctxArgs};
-            }
-            let privKey = cmdArgs[0];
-            let force = false;
-            if (privKey === '--force') {
-                if (cmdArgs.length <= 1) {
-                    return {message: '/e2ee', args: ctxArgs};
-                }
-                force = true;
-                privKey = cmdArgs[1];
-            }
-            this.key!.import(privKey, force).
-                then((key) => {
-                    this.sendEphemeralPost('Key has been imported with success!', chanID);
-                }).
-                catch((e) => {
-                    if (e instanceof AppPrivKeyIsDifferent) {
-                        this.sendEphemeralPost('**Error**: the private key you want to import does not have the same public key as the one known by this Mattermost server. Importing a different private key would prevent you from reading old encrypted messages, and prevent other users from reading your old messages.\nIf you still want to import a different key, use /e2ee import --force', chanID);
-                    } else {
-                        this.sendEphemeralPost('Unable to import key: ' + e, chanID);
-                    }
-                });
+            // @ts-ignore
+            await this.dispatch(openImportModal());
             return {};
         }
         }
@@ -192,12 +165,12 @@ export default class Plugin {
 
     private sendEphemeralPost(msg: string, chanID: string) {
         // @ts-ignore
-        this.store!.dispatch(sendEphemeralPost(msg, chanID));
+        this.dispatch(sendEphemeralPost(msg, chanID));
     }
 
     private async getUserIdsInChannel(chanID: string): Promise<MyActionResult> {
         // @ts-ignore
-        const {data, error} = await this.store!.dispatch(UserActions.getProfilesInChannel(chanID, 0));
+        const {data, error} = await this.dispatch(UserActions.getProfilesInChannel(chanID, 0));
         if (error) {
             return {error};
         }
@@ -214,7 +187,7 @@ export default class Plugin {
         const lastMethod = this.getLastEncryptionMethodForChannel(chanID);
 
         // @ts-ignore
-        const {data: method, error: errEM} = await this.store!.dispatch(getChannelEncryptionMethod(chanID));
+        const {data: method, error: errEM} = await this.dispatch(getChannelEncryptionMethod(chanID));
         if (errEM) {
             return {error: {message: 'Unable to get channel encryption status: ' + errEM}};
         }
@@ -232,7 +205,7 @@ export default class Plugin {
         this.setLastEncryptionMethodForChannel(chanID, method);
         if (method === 'p2p') {
             // @ts-ignore
-            const {data: pubkeys, error: errPK} = await this.store.dispatch(getPubKeys(users));
+            const {data: pubkeys, error: errPK} = await this.dispatch(getPubKeys(users));
             if (errPK) {
                 return {error: {message: 'Unable to get the public keys of the channel members: ' + errPK}};
             }
@@ -240,7 +213,7 @@ export default class Plugin {
                 return {error: {message: 'Noone in this channel has a public key to encrypt for!'}};
             }
 
-            const key = this.key!.getPrivKey();
+            const key = selectPrivkey(this.store!.getState());
             if (key === null) {
                 return {error: {message: "Channel is encrypted but you didn't setup your E2EE key yet. Please run /e2ee init"}};
             }
@@ -248,6 +221,10 @@ export default class Plugin {
         }
 
         return {post};
+    }
+
+    private async dispatch(arg: any) {
+        return this.store!.dispatch(arg);
     }
 }
 

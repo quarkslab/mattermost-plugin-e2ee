@@ -47,14 +47,14 @@ export function arrayBufferEqual(A: ArrayBuffer, B: ArrayBuffer) {
     return true;
 }
 
-export function observeStore<T>(store: Store, select: (s: GlobalState) => T, onChange: (v: T) => Promise<void>) {
+export function observeStore<T>(store: Store, select: (s: GlobalState) => T, onChange: (store: Store, v: T) => Promise<void>) {
     let currentState: T;
 
     async function handleChange() {
         const nextState = select(store.getState());
         if (nextState !== currentState) {
             currentState = nextState;
-            await onChange(currentState);
+            await onChange(store, currentState);
         }
     }
 

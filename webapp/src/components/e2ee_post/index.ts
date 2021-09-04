@@ -7,7 +7,7 @@ import {Post} from 'mattermost-redux/types/posts';
 import {getPubKeys} from 'actions';
 import {id as pluginId} from 'manifest';
 import {PluginState} from 'types';
-import {getPluginState} from '../../selectors';
+import {getPluginState} from 'selectors';
 
 import {E2EEPost} from './e2ee_post';
 

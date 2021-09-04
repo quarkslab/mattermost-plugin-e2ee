@@ -1,10 +1,11 @@
 import {ActionFunc, DispatchFunc, GetStateFunc, ActionResult} from 'mattermost-redux/types/actions';
+import {getCurrentUserId} from 'mattermost-redux/selectors/entities/users';
 import {PostTypes} from 'mattermost-redux/action_types';
 
-import {PubKeyTypes, EncrStatutTypes} from './action_types';
+import {PubKeyTypes, EncrStatutTypes, ImportModalTypes, PrivKeyTypes} from './action_types';
 import APIClient from './client';
 import {StateID} from './constants';
-import {PublicKeyMaterial} from './e2ee';
+import {PrivateKeyMaterial, PublicKeyMaterial} from './e2ee';
 import {getPluginState, selectPubkeys} from './selectors';
 import manifest from './manifest';
 
@@ -16,9 +17,6 @@ export function getPubKeys(userIds: string[]): ActionFunc {
         const ret = new Map<string, PublicKeyMaterial>();
         const setIds = new Set(userIds);
 
-        // AG: we could extend GlobalState to add the plugin's state. Let's
-        // ignore the typescrypt error here!
-        // @ts-ignore
         const state_pubkeys = selectPubkeys(getState());
         for (const userId of userIds) {
             const cached = state_pubkeys.get(userId);
@@ -96,5 +94,40 @@ export function sendEphemeralPost(message: string, channelId: string): ActionFun
         });
 
         return {data: true};
+    };
+}
+
+export function openImportModal(): ActionFunc {
+    return (dispatch: DispatchFunc, getState: GetStateFunc) => {
+        dispatch({
+            type: ImportModalTypes.IMPORT_MODAL_OPEN,
+            data: {},
+        });
+        return {data: null};
+    };
+}
+
+export function closeImportModal(): ActionFunc {
+    return (dispatch: DispatchFunc, getState: GetStateFunc) => {
+        dispatch({
+            type: ImportModalTypes.IMPORT_MODAL_CLOSE,
+            data: {},
+        });
+        return {data: null};
+    };
+}
+
+export function setPrivKey(privkey: PrivateKeyMaterial): ActionFunc {
+    return async (dispatch: DispatchFunc, getState: GetStateFunc) => {
+        const data = {
+            privkey,
+            pubkey: await privkey.pubKey(),
+            userID: getCurrentUserId(getState()),
+        };
+        dispatch({
+            type: PrivKeyTypes.GOT_PRIVKEY,
+            data,
+        });
+        return {data};
     };
 }

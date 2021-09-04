@@ -1,6 +1,7 @@
 import {GlobalState} from 'mattermost-redux/types/store';
 
 import {PrivateKeyMaterial, PublicKeyMaterial} from './e2ee';
+import {KeyStore} from './keystore';
 
 export interface CachedPubKey {
     data: PublicKeyMaterial | null;
@@ -9,10 +10,16 @@ export interface CachedPubKey {
 export type PubKeysState = Map<string, CachedPubKey>;
 export type ChansEncrState = Map<string, string>;
 
+export interface ImportModalState {
+    visible: boolean;
+}
+
 export interface PluginState {
     privkey?: PrivateKeyMaterial;
     pubkeys: PubKeysState;
     chansEncrMethod?: ChansEncrState;
+    importModal: ImportModalState;
+    ks: KeyStore | null;
     enabled?: boolean;
 }
 

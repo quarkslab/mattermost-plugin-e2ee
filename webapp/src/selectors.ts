@@ -31,3 +31,15 @@ export function getServerRoute(state: GlobalState) {
 export function selectPubkeys(state: GlobalState) {
     return getPluginState(state).pubkeys;
 }
+
+export function selectImportModalVisible(state: GlobalState) {
+    return getPluginState(state).importModal.visible;
+}
+
+export function selectPrivkey(state: GlobalState) {
+    return getPluginState(state).privkey || null;
+}
+
+export function selectKS(state: GlobalState) {
+    return getPluginState(state).ks;
+}

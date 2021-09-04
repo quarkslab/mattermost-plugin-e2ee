@@ -9,6 +9,10 @@ const PrivKeyTypes = keyMirror({
     GOT_PRIVKEY: null,
 });
 
+const KSTypes = keyMirror({
+    GOT_KS: null,
+});
+
 const EncrStatutTypes = keyMirror({
     RECEIVED_ENCRYPTION_STATUS: null,
 });
@@ -17,4 +21,9 @@ const EventTypes = keyMirror({
     GOT_RECONNECTED: null,
 });
 
-export {PubKeyTypes, PrivKeyTypes, EncrStatutTypes, EventTypes};
+const ImportModalTypes = keyMirror({
+    IMPORT_MODAL_OPEN: null,
+    IMPORT_MODAL_CLOSE: null,
+});
+
+export {PubKeyTypes, PrivKeyTypes, EncrStatutTypes, EventTypes, ImportModalTypes, KSTypes};
