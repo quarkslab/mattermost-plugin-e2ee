@@ -80,16 +80,16 @@ export class PublicKeyMaterial {
 }
 
 export interface PrivateKeyMaterialJSON {
-    priv: {
-        sign: JsonWebKey;
-        encr: JsonWebKey;
-    }
-    pub: PublicKeyMaterialJSON;
+    version: number;
+    sign: JsonWebKey;
+    encr: JsonWebKey;
 }
 
 export class PrivateKeyMaterial {
     ecdh: CryptoKeyPair
     ecdsa: CryptoKeyPair
+
+    static readonly JSON_FORMAT_VERSION = 1;
 
     constructor(ecdh: CryptoKeyPair, ecdsa: CryptoKeyPair) {
         this.ecdh = ecdh;
@@ -118,11 +118,9 @@ export class PrivateKeyMaterial {
         const ecdsaExport = await subtle.exportKey(PrivateKeyExportFormat, this.ecdsa.privateKey);
         const ecdhExport = await subtle.exportKey(PrivateKeyExportFormat, this.ecdh.privateKey);
         return {
-            priv: {
-                sign: ecdsaExport,
-                encr: ecdhExport,
-            },
-            pub: await this.pubKey().jsonable(tob64),
+            sign: ecdsaExport,
+            encr: ecdhExport,
+            version: PrivateKeyMaterial.JSON_FORMAT_VERSION,
         };
     }
 
@@ -135,22 +133,37 @@ export class PrivateKeyMaterial {
     }
     static async fromJsonable(data: PrivateKeyMaterialJSON, fromb64: boolean, exportable: boolean): Promise<PrivateKeyMaterial> {
         const decData = fdecb64(fromb64);
-        this.checkJWK(data.priv.sign, new Set(['sign']));
-        this.checkJWK(data.priv.encr, new Set(['deriveBits']));
+        this.checkJWK(data.sign, new Set(['sign']));
+        this.checkJWK(data.encr, new Set(['deriveBits']));
         const ecdsaPrivateKey = await subtle.importKey(PrivateKeyExportFormat,
-            data.priv.sign,
+            data.sign,
             {name: 'ECDSA', namedCurve: CurveName},
             exportable,
             ['sign']);
         const ecdhPrivateKey = await subtle.importKey(PrivateKeyExportFormat,
-            data.priv.encr,
+            data.encr,
             {name: 'ECDH', namedCurve: CurveName},
             exportable,
             ['deriveBits']);
 
-        const pub = await PublicKeyMaterial.fromJsonable(data.pub, fromb64);
-        const ecdsaPublicKey = pub.ecdsa;
-        const ecdhPublicKey = pub.ecdh;
+        const pubSign = Object.assign({}, data.sign);
+        delete pubSign.d;
+        pubSign.key_ops = ['verify'];
+        const ecdsaPublicKey = await subtle.importKey(PrivateKeyExportFormat,
+            pubSign,
+            {name: 'ECDSA', namedCurve: CurveName},
+            true,
+            ['verify']);
+
+        const pubEncr = Object.assign({}, data.encr);
+        delete pubEncr.d;
+        pubEncr.key_ops = [];
+        const ecdhPublicKey = await subtle.importKey(PrivateKeyExportFormat,
+            pubEncr,
+            {name: 'ECDH', namedCurve: CurveName},
+            true,
+            []);
+
         return new PrivateKeyMaterial(
             {
                 privateKey: ecdhPrivateKey,
@@ -205,6 +218,7 @@ export async function pubkeyEqual(A: PublicKeyMaterial, B: PublicKeyMaterial): P
 }
 
 export interface EncryptedP2PMessageJSON {
+    version: number;
     signature: string | ArrayBuffer;
     iv: string | ArrayBuffer;
     pubECDHE: string | ArrayBuffer;
@@ -221,6 +235,8 @@ export class EncryptedP2PMessage {
     // Map public key ID to encrypted AES key
     encryptedKey!: Map<string, ArrayBuffer>
     encryptedData!: ArrayBuffer
+
+    static readonly JSON_FORMAT_VERSION = 1;
 
     private static async deriveSharedKey(pubkey: CryptoKey, privkey: CryptoKey, usage: 'wrapKey' | 'unwrapKey'): Promise<CryptoKey> {
         // 32*8 because it seems to gives us the raw output of the ECDH algorithm
@@ -337,6 +353,7 @@ export class EncryptedP2PMessage {
             pubECDHE: encData(pubECDHEData),
             encryptedKey: encryptedKeyData,
             encryptedData: encData(this.encryptedData),
+            version: EncryptedP2PMessage.JSON_FORMAT_VERSION,
         };
     }
 
