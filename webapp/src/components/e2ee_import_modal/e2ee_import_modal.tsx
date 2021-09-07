@@ -51,8 +51,16 @@ export class E2EEImportModal extends React.Component<E2EEImportModalProps, E2EEI
         });
     }
 
+    cleanup() {
+        this.setState({
+            privkey: '',
+            errorMsg: '',
+        });
+    }
+
     handleCancel(e: any) {
-        this.setState({showConfirmModal: false});
+        this.cleanup();
+        this.props.actions.close();
     }
 
     showModalSuccess() {
@@ -61,6 +69,7 @@ export class E2EEImportModal extends React.Component<E2EEImportModalProps, E2EEI
 
     doExit() {
         this.setState({showSuccess: false});
+        this.cleanup();
         this.props.actions.close();
     }
 
@@ -91,8 +100,8 @@ export class E2EEImportModal extends React.Component<E2EEImportModalProps, E2EEI
                 <Modal
                     dialogClassName='modal--scroll'
                     show={this.props.visible}
-                    onHide={this.props.actions.close}
-                    onExited={this.props.actions.close}
+                    onHide={this.handleCancel}
+                    onExited={this.handleCancel}
                     animation={true}
                     bsSize='large'
                     backdrop='static'
@@ -117,7 +126,7 @@ export class E2EEImportModal extends React.Component<E2EEImportModalProps, E2EEI
                     <Modal.Footer>
                         <button
                             type='submit'
-                            onClick={this.props.actions.close}
+                            onClick={this.handleCancel}
                             className='btn btn-link'
                         >{'Cancel'}</button>
                         <button
