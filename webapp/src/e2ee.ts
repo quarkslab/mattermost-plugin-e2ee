@@ -72,9 +72,9 @@ export class PublicKeyMaterial {
     }
 
     async id() {
-        const id_ecdh = getECPubkeyID(this.ecdh);
-        const id_ecdsa = getECPubkeyID(this.ecdsa);
-        const data = concatArrayBuffers(...await Promise.all([id_ecdh, id_ecdsa]));
+        const data_ecdh = subtle.exportKey('raw', this.ecdh);
+        const data_ecdsa = subtle.exportKey('raw', this.ecdsa);
+        const data = concatArrayBuffers(...await Promise.all([data_ecdh, data_ecdsa]));
         return subtle.digest('SHA-256', data);
     }
 }
