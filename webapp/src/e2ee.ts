@@ -10,6 +10,8 @@ const subtle = webcrypto.subtle;
 const CurveName = 'P-256';
 const SignAlgo = {name: 'ECDSA', hash: 'SHA-256'};
 
+const PubKeyIDLen = 32;
+
 const AESWrapKeyFormat = 'raw';
 const PrivateKeyExportFormat = 'jwk';
 
@@ -217,12 +219,15 @@ export async function pubkeyEqual(A: PublicKeyMaterial, B: PublicKeyMaterial): P
     return arrayBufferEqual(idA, idB);
 }
 
+type EncryptedKeyWithIDTy = [ArrayBuffer, ArrayBuffer];
+type EncryptedKeyTy = EncryptedKeyWithIDTy[];
+
 export interface EncryptedP2PMessageJSON {
     version: number;
     signature: string | ArrayBuffer;
     iv: string | ArrayBuffer;
     pubECDHE: string | ArrayBuffer;
-    encryptedKey: { [key: string]: string | ArrayBuffer; };
+    encryptedKey: [string | ArrayBuffer, string | ArrayBuffer][];
     encryptedData: string | ArrayBuffer;
 }
 
@@ -233,7 +238,7 @@ export class EncryptedP2PMessage {
     pubkeyID!: ArrayBuffer
 
     // Map public key ID to encrypted AES key
-    encryptedKey!: Map<string, ArrayBuffer>
+    encryptedKey!: EncryptedKeyTy
     encryptedData!: ArrayBuffer
 
     static readonly JSON_FORMAT_VERSION = 1;
@@ -266,39 +271,42 @@ export class EncryptedP2PMessage {
         // For each public key, generate a shared secret, and use the result to
         // encrypt msgAesKey.
         // We create one promise per key to exploit parallelism if possible.
-        const keys = [];
+        const keysProm: Promise<EncryptedKeyWithIDTy>[] = [];
         for (const pubkey of pubkeys) {
-            const gen = async () => {
+            const gen = async (): Promise<EncryptedKeyWithIDTy> => {
+                const pubkeyID = pubkey.id();
                 const sharedKey = await EncryptedP2PMessage.deriveSharedKey(pubkey.ecdh, ecdheKey.privateKey, 'wrapKey');
                 const encrMsgKey = await subtle.wrapKey(AESWrapKeyFormat,
                     msgKey, sharedKey, 'AES-KW');
-                const pubkeyID = await pubkey.id();
-                return [b64.encode(pubkeyID), encrMsgKey];
+                return [await pubkeyID, encrMsgKey];
             };
-            keys.push(gen());
+            keysProm.push(gen());
         }
-        const promKeyDeriv = Promise.all(keys).then((values) => {
-            const pret: Map<string, ArrayBuffer> = new Map();
-            for (const val of values) {
-                pret.set(val[0], val[1]);
-            }
-            return pret;
-        });
 
         // Encrypt data
         ret.encryptedData = await subtle.encrypt({name: 'AES-CTR', counter: ret.iv, length: 64}, msgKey, data);
 
         // Sign data
-        // TODO: run these two promises in //
+        ret.encryptedKey = await Promise.all(keysProm);
         ret.signature = await subtle.sign({name: 'ECDSA', hash: 'SHA-256'},
             sign.ecdsa.privateKey, await ret.signData());
-        ret.encryptedKey = await promKeyDeriv;
         return ret;
     }
 
     private async signData() {
-        const pubid = await getECPubkeyID(this.pubECDHE);
-        return concatArrayBuffers(this.iv, pubid, this.encryptedData);
+        const pubid = getECPubkeyID(this.pubECDHE);
+        const nkeys = this.encryptedKey.length;
+        const encrKeysLen = 4 + (nkeys * PubKeyIDLen);
+        const encrKeys = new Uint8Array(encrKeysLen);
+        new DataView(encrKeys.buffer).setUint32(0, nkeys, true /* littleEndian */);
+        for (let i = 0; i < nkeys; ++i) {
+            const [id, _] = this.encryptedKey[i];
+            encrKeys.set(new Uint8Array(id), 4 + (i * PubKeyIDLen));
+        }
+        const encrMsgLen = new DataView(this.encryptedData).byteLength;
+        const encrMsgLenBuf = new ArrayBuffer(4);
+        new DataView(encrMsgLenBuf).setUint32(0, encrMsgLen, true /* littleEndian */);
+        return concatArrayBuffers(this.iv, await pubid, encrKeys, encrMsgLenBuf, this.encryptedData);
     }
 
     // Throws E2EEValidationError if verification fails
@@ -317,10 +325,11 @@ export class EncryptedP2PMessage {
     public async decrypt(privkey: PrivateKeyMaterial): Promise<ArrayBuffer> {
         const ecdhKey = privkey.ecdh;
         const pubkeyID = await privkey.pubKeyID();
-        const encrMsgKey = this.encryptedKey.get(b64.encode(pubkeyID));
-        if (typeof encrMsgKey === 'undefined') {
+        const encrMsgKeyData = this.encryptedKey.find(([pkid, _]) => arrayBufferEqual(pkid, pubkeyID));
+        if (typeof encrMsgKeyData === 'undefined') {
             throw new E2EEUnknownRecipient();
         }
+        const encrMsgKey = encrMsgKeyData[1];
 
         // Compute shared key
         const sharedKey = await EncryptedP2PMessage.deriveSharedKey(this.pubECDHE, ecdhKey.privateKey, 'unwrapKey');
@@ -343,9 +352,9 @@ export class EncryptedP2PMessage {
     public async jsonable(tob64 = true): Promise<EncryptedP2PMessageJSON> {
         const encData = fencb64(tob64);
         const pubECDHEData = await subtle.exportKey('raw', this.pubECDHE);
-        const encryptedKeyData: { [key: string]: string | ArrayBuffer; } = {};
+        const encryptedKeyData: [string, string | ArrayBuffer][] = [];
         for (const [pubkeyID, encrKey] of this.encryptedKey) {
-            encryptedKeyData[pubkeyID] = encData(encrKey);
+            encryptedKeyData.push([encData(pubkeyID), encData(encrKey)]);
         }
         return {
             signature: encData(this.signature),
@@ -363,9 +372,9 @@ export class EncryptedP2PMessage {
         ret.signature = decData(data.signature);
         ret.iv = decData(data.iv);
         ret.encryptedData = decData(data.encryptedData);
-        ret.encryptedKey = new Map();
-        for (const [pubkeyID, encrKey] of Object.entries(data.encryptedKey)) {
-            ret.encryptedKey.set(pubkeyID, decData(encrKey));
+        ret.encryptedKey = [];
+        for (const [pubkeyID, encrKey] of data.encryptedKey) {
+            ret.encryptedKey.push([decData(pubkeyID), decData(encrKey)]);
         }
         const pubECDHEData = decData(data.pubECDHE);
         ret.pubECDHE = await subtle.importKey('raw', pubECDHEData,
