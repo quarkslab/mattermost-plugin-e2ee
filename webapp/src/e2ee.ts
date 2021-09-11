@@ -46,12 +46,14 @@ function fdecb64(fromb64: boolean) {
 }
 
 export class PublicKeyMaterial {
-    ecdh: CryptoKey
-    ecdsa: CryptoKey
+    readonly ecdh: CryptoKey
+    readonly ecdsa: CryptoKey
+    cachedID: ArrayBuffer | null
 
     constructor(ecdh: CryptoKey, ecdsa: CryptoKey) {
         this.ecdh = ecdh;
         this.ecdsa = ecdsa;
+        this.cachedID = null;
     }
 
     async jsonable(tob64 = true): Promise<PublicKeyMaterialJSON> {
@@ -74,10 +76,15 @@ export class PublicKeyMaterial {
     }
 
     async id() {
+        if (this.cachedID !== null) {
+            return this.cachedID;
+        }
         const data_ecdh = subtle.exportKey('raw', this.ecdh);
         const data_ecdsa = subtle.exportKey('raw', this.ecdsa);
         const data = concatArrayBuffers(...await Promise.all([data_ecdh, data_ecdsa]));
-        return subtle.digest('SHA-256', data);
+        const ret = await subtle.digest('SHA-256', data);
+        this.cachedID = ret;
+        return ret;
     }
 }
 

@@ -2,9 +2,11 @@
 
 import 'mattermost-webapp/tests/setup';
 
+import {webcrypto} from '../src/webcrypto';
 import {EncryptedP2PMessage, PrivateKeyMaterial, PublicKeyMaterial, getPubkeyID, E2EEValidationError} from '../src/e2ee';
 
 const b64 = require('base64-arraybuffer');
+const subtle = webcrypto.subtle;
 
 test('e2ee/EncryptedP2PMessage', async () => {
     // Create keys
@@ -60,6 +62,19 @@ test('e2ee/ModifiedMsg', async () => {
     const wrappedKey = encrMsg.encryptedKey[b64.encode(pkID)]
     new Uint8Array(wrappedKey)[0] ^= 1
     await expect(encrMsg.decrypt(u1.ecdh)).rejects.toThrow(E2EEValidationError)*/
+});
+
+test('e2ee/pubidCache', async () => {
+    const own = await PrivateKeyMaterial.create();
+    const pub = own.pubKey();
+
+    const id = pub.id();
+    const orgDigest = subtle.digest;
+    subtle.digest = jest.fn();
+    const id2 = pub.id();
+    expect(subtle.digest).not.toHaveBeenCalled();
+    subtle.digest = orgDigest;
+    expect(id).toStrictEqual(id2);
 });
 
 test('e2ee/jsonPub', async () => {
