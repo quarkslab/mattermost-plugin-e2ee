@@ -95,14 +95,19 @@ export interface PrivateKeyMaterialJSON {
 }
 
 export class PrivateKeyMaterial {
-    ecdh: CryptoKeyPair
-    ecdsa: CryptoKeyPair
+    readonly ecdh: CryptoKeyPair
+    readonly ecdsa: CryptoKeyPair
+    readonly pubkeyObj: PublicKeyMaterial
 
     static readonly JSON_FORMAT_VERSION = 1;
 
     constructor(ecdh: CryptoKeyPair, ecdsa: CryptoKeyPair) {
         this.ecdh = ecdh;
         this.ecdsa = ecdsa;
+
+        // We create this object once so that the ID of our private key will
+        // be cached.
+        this.pubkeyObj = new PublicKeyMaterial(this.ecdh.publicKey, this.ecdsa.publicKey);
     }
 
     async pubKeyID() {
@@ -211,7 +216,7 @@ export class PrivateKeyMaterial {
     }
 
     pubKey(): PublicKeyMaterial {
-        return new PublicKeyMaterial(this.ecdh.publicKey, this.ecdsa.publicKey);
+        return this.pubkeyObj;
     }
 }
 
