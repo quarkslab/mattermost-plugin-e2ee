@@ -1,9 +1,8 @@
 import 'mattermost-webapp/tests/setup';
 import {KeyStore, KeyStoreError} from '../src/keystore';
+import {webcrypto} from '../src/webcrypto';
 
-const {Crypto} = require('node-webcrypto-ossl');
-const crypto = new Crypto();
-const subtle = crypto.subtle;
+const subtle = webcrypto.subtle;
 
 const TestECParams: EcKeyGenParams = {
     name: 'ECDSA',
