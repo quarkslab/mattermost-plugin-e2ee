@@ -30,7 +30,7 @@ export function getPubKeys(userIds: string[]): ActionFunc {
         }
         if (setIds.size > 0) {
             try {
-                const apires = await APIClient.getPubKeys(Array.from(setIds));
+                const apires = await APIClient.getPubKeysDebounced(Array.from(setIds));
                 dispatch(
                     {
                         type: PubKeyTypes.RECEIVED_PUBKEYS,

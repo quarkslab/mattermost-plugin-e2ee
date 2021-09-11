@@ -132,7 +132,7 @@ test('privkey/importDifferent', async () => {
     const oldprivkey = await PrivateKeyMaterial.create(true /* extractible */);
     const privkey = await PrivateKeyMaterial.create(true /* extractible */);
 
-    jest.spyOn(APIClient, 'getPubKeys').
+    jest.spyOn(APIClient, 'getPubKeysDebounced').
         mockImplementation(async (userIds) => {
             expect(userIds).toStrictEqual(['myuserID']);
             return new Map([['myuserID', oldprivkey.pubKey()]]);

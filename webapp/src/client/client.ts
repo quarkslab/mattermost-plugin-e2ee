@@ -3,9 +3,15 @@ import {ClientError} from 'mattermost-redux/client/client4';
 
 import {id as pluginId} from 'manifest';
 import {PublicKeyMaterial, PublicKeyMaterialJSON} from 'e2ee';
+import {debouncedMerge, debouncedMergeMapArrayReducer} from 'utils';
 
 export default class ClientClass {
     url!: string
+    getPubKeysDebounced: (userIds: Array<string>) => Promise<Map<string, PublicKeyMaterial>>
+
+    constructor() {
+        this.getPubKeysDebounced = debouncedMerge(this.getPubKeys.bind(this), debouncedMergeMapArrayReducer, 1);
+    }
 
     setServerRoute(url: string) {
         this.url = url + `/plugins/${pluginId}/api/v1`;
