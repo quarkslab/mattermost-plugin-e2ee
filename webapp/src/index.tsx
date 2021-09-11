@@ -148,12 +148,12 @@ export default class Plugin {
         case 'init':
             return this.handleInit(cmdArgs, ctxArgs);
 
-            // TODO: move these two are pure slash commands
-        case 'activate': {
+        // TODO: move these two are pure slash commands
+        case 'start': {
             await this.setChannelEncryptionMethod(chanID, E2EE_CHAN_ENCR_METHOD_P2P);
             return {};
         }
-        case 'deactivate': {
+        case 'stop': {
             await this.setChannelEncryptionMethod(chanID, E2EE_CHAN_ENCR_METHOD_NONE);
             return {};
         }
