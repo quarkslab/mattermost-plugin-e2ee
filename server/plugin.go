@@ -19,7 +19,7 @@ const (
 * |/e2ee init [--force] [gpg key fingerprint]| - initialize E2EE for your account. This will generate a new key for your session. Use --force to erase an exisiting key.
 * |/e2ee start| - encrypt the messages you send in this channel.
 * |/e2ee stop| - do not encrypt the messages you send in this channel.
-* |/e2ee import [private_key]| - import your private key into this device.
+* |/e2ee import| - import your private key into this device.
 * |/e2ee show_backup| - show saved encrypted GPG backup.
 `
 	autoCompleteDescription = "Available commands: init import help"
