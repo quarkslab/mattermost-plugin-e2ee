@@ -280,7 +280,6 @@ export class EncryptedP2PMessage {
     signature!: ArrayBuffer
     iv!: Uint8Array
     pubECDHE!: CryptoKey
-    pubkeyID!: ArrayBuffer
 
     // Map public key ID to encrypted AES key
     encryptedKey!: EncryptedKeyTy
@@ -303,7 +302,6 @@ export class EncryptedP2PMessage {
     static async encrypt(data: ArrayBuffer, sign: PrivateKeyMaterial, pubkeys: Array<PublicKeyMaterial>): Promise<EncryptedP2PMessage> {
         //assert(signkey.type == "private")
         const ret = new EncryptedP2PMessage();
-        ret.pubkeyID = await (await sign.pubKey()).id();
         ret.iv = new Uint8Array(16);
         webcrypto.getRandomValues(ret.iv);
         const msgKey = await subtle.generateKey({name: 'AES-CTR', length: 128}, true, ['encrypt']);
