@@ -31,3 +31,21 @@ deploy:
         - webapp/node_modules
   rules:
     - if: '$CI_COMMIT_REF_NAME == "master"'
+
+dist:
+  image: "$CI_REGISTRY_IMAGE/20210902.0"
+  stage: deploy
+  script:
+    - make dist
+  cache:
+    - key:
+        files:
+          - webapp/package.json
+          - webapp/package-lock.json
+      paths:
+        - webapp/node_modules
+  rules:
+    - if: $CI_COMMIT_TAG
+  artifacts:
+    paths:
+      - dist/com.quarkslab.e2ee-*.tar.gz
