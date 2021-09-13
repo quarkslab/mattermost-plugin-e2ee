@@ -3,7 +3,7 @@
 import 'mattermost-webapp/tests/setup';
 
 import {webcrypto} from '../src/webcrypto';
-import {EncryptedP2PMessage, PrivateKeyMaterial, PublicKeyMaterial, getPubkeyID, E2EEValidationError} from '../src/e2ee';
+import {EncryptedP2PMessage, PrivateKeyMaterial, PublicKeyMaterial, getPubkeyID, E2EEValidationError, isEncryptedP2PMessageJSON} from '../src/e2ee';
 
 const b64 = require('base64-arraybuffer');
 const subtle = webcrypto.subtle;
@@ -109,4 +109,32 @@ test('e2ee/jsonPriv', async () => {
 
     expect(own2).toStrictEqual(own);
     expect(await own2.jsonable(true)).toStrictEqual(jsonable);
+});
+
+test('e2ee/badmsgobjs', () => {
+    expect(isEncryptedP2PMessageJSON(1, true /* hasb64 */)).toStrictEqual(false);
+    expect(isEncryptedP2PMessageJSON('a', true /* hasb64 */)).toStrictEqual(false);
+    expect(isEncryptedP2PMessageJSON([], true /* hasb64 */)).toStrictEqual(false);
+    expect(isEncryptedP2PMessageJSON({}, true /* hasb64 */)).toStrictEqual(false);
+    expect(isEncryptedP2PMessageJSON({version: 1}, true /* hasb64 */)).toStrictEqual(false);
+
+    let obj = {
+        version: 1,
+        signature: 'a',
+        iv: 'b',
+        pubECDHE: 'c',
+        encryptedData: 'd',
+        encryptedKey: [1, 2],
+    };
+    expect(isEncryptedP2PMessageJSON(obj, true /* hasb64 */)).toStrictEqual(false);
+
+    obj = {
+        version: 1,
+        signature: 'a',
+        iv: 'b',
+        pubECDHE: 'c',
+        encryptedData: 'd',
+        encryptedKey: [[1, 2]],
+    };
+    expect(isEncryptedP2PMessageJSON(obj, true /* hasb64 */)).toStrictEqual(false);
 });

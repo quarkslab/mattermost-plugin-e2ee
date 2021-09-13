@@ -31,11 +31,20 @@ export class E2EEInvalidPrivKey extends E2EEError {
         super('invalid private key metadata');
     }
 }
-
-export interface PublicKeyMaterialJSON {
-    sign: string | ArrayBuffer;
-    encr: string | ArrayBuffer;
+export class E2EEInvalidJSONMessage extends E2EEError {
+    constructor() {
+        super('invalid message data');
+    }
 }
+
+type B64Str = string;
+type B64OrBuf = B64Str | ArrayBuffer;
+
+interface PublicKeyMaterialJSONImpl<Bin extends B64OrBuf> {
+    sign: Bin;
+    encr: Bin;
+}
+export type PublicKeyMaterialJSON = PublicKeyMaterialJSONImpl<B64Str> | PublicKeyMaterialJSONImpl<ArrayBuffer>;
 
 function fencb64(tob64: boolean) {
     return tob64 ? b64.encode : ((v: ArrayBuffer): ArrayBuffer => v);
@@ -146,7 +155,6 @@ export class PrivateKeyMaterial {
         }
     }
     static async fromJsonable(data: PrivateKeyMaterialJSON, fromb64: boolean, exportable: boolean): Promise<PrivateKeyMaterial> {
-        const decData = fdecb64(fromb64);
         this.checkJWK(data.sign, new Set(['sign']));
         this.checkJWK(data.encr, new Set(['deriveBits']));
         const ecdsaPrivateKey = await subtle.importKey(PrivateKeyExportFormat,
@@ -234,13 +242,38 @@ export async function pubkeyEqual(A: PublicKeyMaterial, B: PublicKeyMaterial): P
 type EncryptedKeyWithIDTy = [ArrayBuffer, ArrayBuffer];
 type EncryptedKeyTy = EncryptedKeyWithIDTy[];
 
-export interface EncryptedP2PMessageJSON {
+interface EncryptedP2PMessageJSONImpl<Bin extends B64OrBuf> {
     version: number;
-    signature: string | ArrayBuffer;
-    iv: string | ArrayBuffer;
-    pubECDHE: string | ArrayBuffer;
-    encryptedKey: [string | ArrayBuffer, string | ArrayBuffer][];
-    encryptedData: string | ArrayBuffer;
+    signature: Bin;
+    iv: Bin;
+    pubECDHE: Bin;
+    encryptedKey: [Bin, Bin][];
+    encryptedData: Bin;
+}
+export type EncryptedP2PMessageJSON = EncryptedP2PMessageJSONImpl<B64Str> | EncryptedP2PMessageJSONImpl<ArrayBuffer>;
+
+export function isEncryptedP2PMessageJSON(obj: any, hasb64 = true): obj is EncryptedP2PMessageJSON {
+    if (typeof obj !== 'object') {
+        return false;
+    }
+    const strOrArray = hasb64 ? (v: any) => typeof v === 'string' : (v: any) => v instanceof ArrayBuffer;
+    try {
+        if (!Array.isArray(obj.encryptedKey)) {
+            return false;
+        }
+        for (const [kid, key] of obj.encryptedKey) {
+            if (!strOrArray(kid) || !strOrArray(key)) {
+                return false;
+            }
+        }
+        return typeof (obj.version) === 'number' &&
+               strOrArray(obj.signature) &&
+               strOrArray(obj.iv) &&
+               strOrArray(obj.pubECDHE) &&
+               strOrArray(obj.encryptedData);
+    } catch (e) {
+        return false;
+    }
 }
 
 export class EncryptedP2PMessage {
@@ -364,7 +397,7 @@ export class EncryptedP2PMessage {
     public async jsonable(tob64 = true): Promise<EncryptedP2PMessageJSON> {
         const encData = fencb64(tob64);
         const pubECDHEData = await subtle.exportKey('raw', this.pubECDHE);
-        const encryptedKeyData: [string, string | ArrayBuffer][] = [];
+        const encryptedKeyData: [B64Str, B64Str][] & [ArrayBuffer, ArrayBuffer][] = [];
         for (const [pubkeyID, encrKey] of this.encryptedKey) {
             encryptedKeyData.push([encData(pubkeyID), encData(encrKey)]);
         }
@@ -378,7 +411,10 @@ export class EncryptedP2PMessage {
         };
     }
 
-    static async fromJsonable(data: EncryptedP2PMessageJSON, fromb64 = true): Promise<EncryptedP2PMessage> {
+    static async fromJsonable(data: any, fromb64 = true): Promise<EncryptedP2PMessage> {
+        if (!isEncryptedP2PMessageJSON(data, fromb64)) {
+            throw new E2EEInvalidJSONMessage();
+        }
         const decData = fdecb64(fromb64);
         const ret = new EncryptedP2PMessage();
         ret.signature = decData(data.signature);
