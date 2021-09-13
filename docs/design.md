@@ -11,7 +11,7 @@ In this attack model, we consider that the attacker either has access to the dat
 that the server receives (but won't modify them), or can somehow read the
 database of the Mattermost server (but can't/won't write anything to it).
 
-In this model, end-to-end encryption is pretty efficient, as the server (in
+In this model, end-to-end encryption is efficient, as the server (in
 theory) does not own any secret to decrypt the transmitted posts. Also, he
 can't inject malicious Javascript as in the active attacker model described
 below.
@@ -59,7 +59,7 @@ with tests in `webapp/tests/e2ee.test.ts`.
 
 The asymmetric keys we use are on the P-256 curve. On one side, the [WebCrypto
 API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API) provides
-the nice features that the cryptographic primitives runs natively & that
+the nice features that the cryptographic primitives run natively & that
 private keys can be *non extractable*, protecting them from being extracted via
 XSS or [malicious Javascript code injected](#active-attacker). On the other
 side, it doesn't give much choices regarding [the supported
@@ -149,11 +149,11 @@ an error is emitted if this guarantee isn't verified. The resulting AES key is
 then used to decrypt the encrypted message using AES128-CTR and the IV
 (available in `EncryptedP2PMessage`).
 
-### Some possible future optimisations
+### Some possible future optimizations
 
-There might be some space/performance optimisation opportunities to consider in the future.
+There might be some space/performance optimization opportunities to consider in the future.
 
-#### Small messages optimisation?
+#### Small messages optimization?
 
 If the message length is lower than 32 bytes (the output length of
 `SHA256(DHSS)`), then we could simply XOR the message with this shared secret,
@@ -162,7 +162,7 @@ computations and the final `AES-CTR` encryption.
 
 The drawback is that we now need to include more data into the ECDSA / SHA256
 signature process to assess for the integrity of the encrypted versions of the
-message. Thus we save `N` `AES-KW` instances & the final `AES-CTR`, but we need
+message. Thus, we save `N` `AES-KW` instances & the final `AES-CTR`, but we need
 to feed (at most) `N*32` more bytes into `SHA256`. Some benchmarks need to be
 done to figure out whether this really is interesting. There might be other way
 to assess for the integrity of the encrypted message. To be continued.

@@ -35,7 +35,7 @@ secure location. If it manages to do so, it will also send a GPG encrypted
 backup of that private key.
 
 `/e2ee start` sets the current channel in encryption mode. This means that
-every message sent on that channel has to be encrypted. `/e2ee stop` puts the
+every message sent on that channel must be encrypted. `/e2ee stop` puts the
 channel back in clear text mode.
 
 `/e2ee help` shows a help message with the available commands.
@@ -90,7 +90,7 @@ basis. The `/e2ee start` command activates encryption on the current channel:
   <img width="50%" src="docs/start.png" />
 </div>
 
-When encryption is activated for a channel but some people still haven't
+When encryption is activated for a channel, but some people still haven't
 [setup a private key](#private-key-generation-backup), a message shows you who
 will not be able to read the messages on the channel:
 
