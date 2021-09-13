@@ -48,6 +48,28 @@ test('privkey/init', async () => {
     ]);
 });
 
+test('privkey/hasPubkeyFalse', async () => {
+    const store = testConfigureStore(storeInitUser);
+    jest.spyOn(APIClient, 'getPubKeysDebounced').
+        mockImplementation(async (userIds) => {
+            expect(userIds).toStrictEqual(['myuserID']);
+            return new Map([['myuserID', null]]);
+        });
+    expect(await store.dispatch(AppPrivKey.userHasPubkey())).toStrictEqual({data: false});
+});
+
+test('privkey/hasPubkeyTrue', async () => {
+    const store = testConfigureStore(await getStoreInit());
+    const key = await PrivateKeyMaterial.create(false /* exportable */);
+
+    jest.spyOn(APIClient, 'getPubKeysDebounced').
+        mockImplementation(async (userIds) => {
+            expect(userIds).toStrictEqual(['myuserID']);
+            return new Map([['myuserID', key.pubKey()]]);
+        });
+    expect(await store.dispatch(AppPrivKey.userHasPubkey())).toStrictEqual({data: true});
+});
+
 test('privkey/generateNoGPG', async () => {
     const store = testConfigureStore(await getStoreInit());
 

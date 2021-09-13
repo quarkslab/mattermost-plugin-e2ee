@@ -68,6 +68,17 @@ export class AppPrivKey {
         };
     }
 
+    static userHasPubkey(): ActionFunc {
+        return async (dispatch: DispatchFunc, getState: GetStateFunc) => {
+            // @ts-ignore
+            const {data, error} = await dispatch(AppPrivKey.getUserPubkey());
+            if (error) {
+                return {data: false};
+            }
+            return {data: (data !== null)};
+        };
+    }
+
     static import(backupGPG: string, force: boolean): ActionFunc {
         return async (dispatch: DispatchFunc, getState: GetStateFunc) => {
             try {

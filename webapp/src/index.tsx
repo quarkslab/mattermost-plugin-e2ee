@@ -95,7 +95,7 @@ export default class Plugin {
         let msg;
         const force = cmdArgs[0] === '--force';
         const keyInBrowser = AppPrivKey.exists(this.store!.getState());
-        const pubKeyRegistered = (await this.dispatch(AppPrivKey.getUserPubkey())) !== null;
+        const {data: pubKeyRegistered} = await this.dispatch(AppPrivKey.userHasPubkey());
         if (!force && keyInBrowser) {
             msg = 'A private key is already present in your browser, so we are not overriding it. Use --force to erase it.';
         } else if (!force && pubKeyRegistered) {
