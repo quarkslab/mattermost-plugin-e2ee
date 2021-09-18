@@ -106,8 +106,8 @@ export default class Plugin {
 
             // Push the public key and backup to the server
             msg = 'A new private key has been generated. ';
-            if (backupGPG === null) {
-                msg += "Unfortunately, we didn't manage to encrypt it with your GPG key.";
+            if (backupGPG.error) {
+                msg += "Unfortunately, we didn't manage to encrypt it with your GPG key: " + backupGPG.error;
             } else {
                 msg += 'You should have received a GPG encrypted backup by mail.';
             }

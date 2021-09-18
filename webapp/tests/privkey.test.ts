@@ -85,7 +85,9 @@ test('privkey/generateNoGPG', async () => {
 
     const {data, error} = await store.dispatch(AppPrivKey.generate());
     expect(error).toBeUndefined();
-    const {privkey, backupGPG} = data;
+    const {privkey, backupGPG, backupClear} = data;
+    expect(backupGPG.error).not.toBeUndefined();
+    expect(backupGPG.data).toBeUndefined();
 
     expect(store.getActions()).toMatchObject([
         {
@@ -113,7 +115,45 @@ test('privkey/generateWithGPG', async () => {
 
     const {data, error} = await store.dispatch(AppPrivKey.generate());
     expect(error).toBeUndefined();
-    const {privkey, backupGPG} = data;
+    const {privkey, backupGPG, backupClear} = data;
+    expect(typeof backupGPG.data).toBe('string');
+    expect(backupGPG.error).toBeUndefined();
+
+    finiOpenGPG();
+
+    expect(store.getActions()).toMatchObject([
+        {
+            type: PrivKeyTypes.GOT_PRIVKEY,
+            data: {privkey, pubkey: await privkey.pubKey(), userID: 'myuserID'},
+        },
+    ]);
+});
+
+test('privkey/generateWithGPGRevoked', async () => {
+    const store = testConfigureStore(await getStoreInit());
+
+    initOpenGPG();
+    const {privateKeyArmored, publicKeyArmored, revocationCertificate} = await generateGPGKey();
+    const revokedKey = await openpgp.revokeKey({
+        key: (await openpgp.key.readArmored(publicKeyArmored)).keys[0],
+        revocationCertificate,
+    });
+
+    jest.spyOn(APIClient, 'getGPGPubKey').
+        mockImplementation(async () => {
+            return revokedKey;
+        });
+    jest.spyOn(APIClient, 'pushPubKey').
+        mockImplementation(async (pubKey, backupGPG) => {
+            expect(typeof backupGPG).toBe('string');
+            expect(pubKey).toBeInstanceOf(PublicKeyMaterial);
+        });
+
+    const {data, error} = await store.dispatch(AppPrivKey.generate());
+    expect(error).toBeUndefined();
+    const {privkey, backupGPG, backupClear} = data;
+    expect(backupGPG.data).toBeUndefined();
+    expect(backupGPG.error).not.toBeUndefined();
 
     finiOpenGPG();
 
