@@ -301,10 +301,6 @@ type KeyListing struct {
 	IsExpired      bool
 }
 
-func (k KeyListing) GetLast8KeyIDBytes() string {
-	return k.KeyID[len(k.KeyID)-8:]
-}
-
 func (k KeyListing) String() string {
 	flags := ""
 	if k.IsRevoked {
@@ -359,8 +355,8 @@ func ParseMachineReadableIndexes(str string) []KeyListing {
 	}
 	return ret
 }
-func GpgServerExtractFirstNotRevokedLink(gpgkeyserver string, email string) (string, error) {
-	resp, err := http.Get(fmt.Sprintf("%s/pks/lookup?op=index&options=mr&search=%s", gpgkeyserver, email))
+func GpgServerExtractFirstNotRevokedLink(gpgKeyServer string, email string) (string, error) {
+	resp, err := http.Get(fmt.Sprintf("%s/pks/lookup?op=index&options=mr&search=%s", gpgKeyServer, url.QueryEscape(email)))
 	if nil != err {
 		return "", err
 	}
@@ -373,11 +369,12 @@ func GpgServerExtractFirstNotRevokedLink(gpgkeyserver string, email string) (str
 
 	for _, i := range ParseMachineReadableIndexes(string(body)) {
 		if !i.IsExpired && !i.IsDisabled && !i.IsRevoked {
-			return fmt.Sprintf("%s/pks/lookup?op=get&search=0x%s", gpgkeyserver, i.GetLast8KeyIDBytes()), nil
+			return i.KeyID, nil
 		}
 	}
-	return "", fmt.Errorf("no valid key found in server %s for user %s", gpgkeyserver, email)
+	return "", fmt.Errorf("no valid key found")
 }
+
 func (p *Plugin) GetGPGPubKey(c *Context, w http.ResponseWriter, r *http.Request) {
 	userID := c.UserID
 	user, appErr := p.API.GetUser(userID)
@@ -390,11 +387,12 @@ func (p *Plugin) GetGPGPubKey(c *Context, w http.ResponseWriter, r *http.Request
 	// https://keys.openpgp.org/vks/v1/by-email/adrien@guinet.me
 	// Support PKS for now (keys.qb doesn't support vks)
 	gpgKeyServer := p.getConfiguration().GPGKeyServer
-	url, err := GpgServerExtractFirstNotRevokedLink(gpgKeyServer, url.QueryEscape(user.Email))
+	keyid, err := GpgServerExtractFirstNotRevokedLink(gpgKeyServer, user.Email)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Unable to get GPG key for '%s': %s", user.Email, err.Error()), http.StatusInternalServerError)
 		return
 	}
+	url := fmt.Sprintf("%s/pks/lookup?op=get&options=mr&search=0x%s", gpgKeyServer, url.QueryEscape(keyid))
 	//nolint:gosec
 	resp, err := http.Get(url)
 	if err != nil {
@@ -404,7 +402,7 @@ func (p *Plugin) GetGPGPubKey(c *Context, w http.ResponseWriter, r *http.Request
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		http.Error(w, fmt.Sprintf("Unable to get GPG key for '%s': GPG key server returned status code %d", user.Email, resp.StatusCode), resp.StatusCode)
+		http.Error(w, fmt.Sprintf("Unable to get GPG key for '%s': GPG key server returned status code %d '%s'", user.Email, resp.StatusCode, url), resp.StatusCode)
 		return
 	}
 
