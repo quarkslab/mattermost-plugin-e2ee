@@ -21,7 +21,8 @@ class MsgCacheImpl {
         if (typeof post.id === 'undefined') {
             return;
         }
-        this.cacheDecrypted.set(post.id, msg);
+        const id = MsgCacheImpl.postID(post);
+        this.cacheDecrypted.set(id, msg);
         MsgCacheImpl.checkSize(this.cacheDecrypted);
     }
 
@@ -32,12 +33,7 @@ class MsgCacheImpl {
         if (typeof post.id === 'undefined') {
             return null;
         }
-        let id: string;
-        if (post.pending_post_id && post.pending_post_id !== '') {
-            id = post.pending_post_id;
-        } else {
-            id = post.id;
-        }
+        const id = MsgCacheImpl.postID(post);
         return this.cacheDecrypted.get(id) || null;
     }
 
@@ -50,6 +46,13 @@ class MsgCacheImpl {
         // (https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map).
         const first = obj.keys().next().value;
         obj.delete(first);
+    }
+
+    private static postID(post: Post): string {
+        if (post.pending_post_id && post.pending_post_id !== '') {
+            return post.pending_post_id;
+        }
+        return post.id;
     }
 }
 

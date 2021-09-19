@@ -1,4 +1,10 @@
-0.2.0
+0.2.1 (19/09/2021)
+-----
+
+webapp:
+* Fix cache for received encrypted messages
+
+0.2.0 (19/09/2021)
 -----
 
 webapp:
