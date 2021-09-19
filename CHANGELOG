@@ -1,3 +1,11 @@
+0.2.0
+-----
+
+webapp:
+* Cache encrypted messages for faster channel switches
+* Remove flickering while decrypting messages
+* Properly display the error that can occur while encryption the private key with GPG
+
 0.1.1 (16/09/2021)
 -----
 

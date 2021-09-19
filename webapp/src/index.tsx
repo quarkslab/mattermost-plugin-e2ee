@@ -26,6 +26,7 @@ import {MyActionResult, PubKeysState} from './types';
 import {observeStore} from './utils';
 import {pubkeyStore} from './pubkeys_storage';
 import {KeyStore} from './keystore';
+import {msgCache} from './msg_cache';
 import E2EEImportModal from './components/e2ee_import_modal';
 
 const b64 = require('base64-arraybuffer');
@@ -220,7 +221,9 @@ export default class Plugin {
             if (key === null) {
                 return {error: {message: "Channel is encrypted but you didn't setup your E2EE key yet. Please run /e2ee init"}};
             }
+            const orgMsg = post.message;
             await encryptPost(post, key, pubkeys.values());
+            msgCache.addMine(post, orgMsg);
         }
 
         return {post};
