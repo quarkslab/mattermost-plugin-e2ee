@@ -252,6 +252,8 @@ Setting the `MM_DEBUG` environment variable will invoke the debug builds. The ea
 * Adrien Guinet
 * Pierre Veber
 * Angèle Bossuat
+* Charlie Boulo
+* Guillaume Valadon
 
 ## Acknowledgment
 
