@@ -3,6 +3,7 @@ import React from 'react';
 
 import {Post} from 'mattermost-redux/types/posts';
 import {FileInfo} from 'mattermost-redux/types/files';
+import {Channel} from 'mattermost-redux/types/channels';
 
 export type UniqueIdentifier = string;
 export type ContextArgs = {channel_id: string};
@@ -47,7 +48,7 @@ export interface PluginRegistry {
     // - tooltip_text - string shown for tooltip appear on hover
     registerChannelHeaderButtonAction(
         icon: React.ReactNode,
-        action: () => void,
+        action: (channel: Channel) => void,
         dropdownText: React.ReactNode,
         tooltipText: string
     ): UniqueIdentifier;

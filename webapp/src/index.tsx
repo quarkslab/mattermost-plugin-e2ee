@@ -1,6 +1,8 @@
+import React from 'react';
 import {Store, Action} from 'redux';
 import {GlobalState} from 'mattermost-redux/types/store';
 import {Post} from 'mattermost-redux/types/posts';
+import {Channel} from 'mattermost-redux/types/channels';
 import {getCurrentChannelId} from 'mattermost-redux/selectors/entities/common';
 import {makeGetProfilesInChannel} from 'mattermost-redux/selectors/entities/users';
 import {Client4} from 'mattermost-redux/client';
@@ -11,6 +13,7 @@ import * as UserActions from 'mattermost-redux/actions/users';
 
 import APIClient from './client';
 import manifest from './manifest';
+import Icon from './components/icon';
 import {getServerRoute, selectPubkeys, selectPrivkey, selectKS} from './selectors';
 import {EncrStatutTypes, EventTypes, PubKeyTypes} from './action_types';
 import {getPubKeys, getChannelEncryptionMethod, sendEphemeralPost, openImportModal} from './actions';
@@ -45,6 +48,14 @@ export default class Plugin {
         registry.registerWebSocketEventHandler('custom_com.quarkslab.e2ee_channelStateChanged', this.channelStateChanged.bind(this));
         registry.registerWebSocketEventHandler('custom_com.quarkslab.e2ee_newPubkey', this.onNewPubKey.bind(this));
         registry.registerReconnectHandler(this.onReconnect.bind(this));
+
+        registry.registerChannelHeaderButtonAction(
+            // eslint-disable-next-line react/jsx-filename-extension
+            <Icon/>,
+            this.toggleEncryption.bind(this),
+            'Toggle channel encryption',
+            'Toggle channel encryption',
+        );
 
         APIClient.setServerRoute(getServerRoute(store.getState()));
 
@@ -90,6 +101,15 @@ export default class Plugin {
             type: EventTypes.GOT_RECONNECTED,
             data: {},
         });
+    }
+
+    private async toggleEncryption(channel: Channel) {
+        const chanID = channel.id;
+        const {data: method, error} = await this.dispatch(getChannelEncryptionMethod(chanID));
+        if (error) {
+            return;
+        }
+        this.setChannelEncryptionMethod(chanID, method === 'none' ? 'p2p' : 'none');
     }
 
     private async handleInit(cmdArgs: Array<string>, ctxArgs: ContextArgs) {
@@ -149,7 +169,7 @@ export default class Plugin {
         case 'init':
             return this.handleInit(cmdArgs, ctxArgs);
 
-        // TODO: move these two are pure slash commands
+        // TODO: move these two as pure slash commands
         case 'start': {
             await this.setChannelEncryptionMethod(chanID, E2EE_CHAN_ENCR_METHOD_P2P);
             return {};
