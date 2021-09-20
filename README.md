@@ -157,6 +157,18 @@ application, so bypassing this check in some ways.
 
 Fixing this is work-in-progress, and any help or suggestions would be appreciated!
 
+### Notifications from mentions are not working
+
+Mentions (like `@all`) in encrypted messages aren't working for now. The
+mechanism that triggers notification seems to require the server to be able to
+process sent messages, which isn't obviously the case when this plugin is used.
+
+There is also the issue that messages are only decrypted once we try to display
+them.
+
+There's no short-term plan to fix this, but any help or suggestion would be
+appreciated!
+
 ## Development
 
 This section describes how to setup a development environment.
