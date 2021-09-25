@@ -3,14 +3,11 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"runtime/debug"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/mattermost/mattermost-server/v5/model"
@@ -18,19 +15,6 @@ import (
 
 	"github.com/gorilla/mux"
 )
-
-// Algos Cf https://datatracker.ietf.org/doc/html/rfc2440#section-9.1
-var Algos = map[int]string{
-	1:  "RSAEncryptOrSign",
-	2:  "RSAEncrypt",
-	3:  "RSASign",
-	16: "ElGamalEncrypt",
-	17: "DSA",
-	18: "EC",
-	19: "ECDSA",
-	20: "ElGamalEncryptOrSign",
-	21: "DH",
-}
 
 type HTTPHandlerFuncWithContext func(c *Context, w http.ResponseWriter, r *http.Request)
 
@@ -44,20 +28,6 @@ type PushPubKeyRequest struct {
 	BackupGPG *string `json:"backupGPG"`
 }
 
-func (p *Plugin) SendGPGBackup(userID string) *model.AppError {
-	user, appErr := p.API.GetUser(userID)
-	if appErr != nil {
-		return appErr
-	}
-
-	backupGPG, appErr := p.API.KVGet(StoreBackupGPGKey(userID))
-	if appErr != nil {
-		return appErr
-	}
-
-	return p.API.SendMail(user.Email, "Mattermost E2EE private key backup", "<pre>"+string(backupGPG)+"</pre>")
-}
-
 func (p *Plugin) PushPubKey(c *Context, w http.ResponseWriter, r *http.Request) {
 	userID := c.UserID
 
@@ -69,19 +39,13 @@ func (p *Plugin) PushPubKey(c *Context, w http.ResponseWriter, r *http.Request) 
 
 	pubkey := &req.PK
 	if !pubkey.Validate() {
-		http.Error(w, "invalid elliptic curve key", http.StatusBadRequest)
+		http.Error(w, "invalid public key", http.StatusBadRequest)
 		return
 	}
 
-	pubkeyData, err := json.Marshal(pubkey)
+	err := p.SetUserPubKey(userID, pubkey)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	appErr := p.API.KVSet(StoreKeyPubKey(userID), pubkeyData)
-	if appErr != nil {
-		http.Error(w, appErr.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -91,16 +55,15 @@ func (p *Plugin) PushPubKey(c *Context, w http.ResponseWriter, r *http.Request) 
 		},
 		&model.WebsocketBroadcast{OmitUsers: map[string]bool{userID: true}})
 
-	kvGPGBackup := StoreBackupGPGKey(userID)
 	if req.BackupGPG == nil {
-		appErr = p.API.KVDelete(kvGPGBackup)
+		appErr := p.DeleteGPGBackup(userID)
 		if appErr != nil {
 			http.Error(w, appErr.Error(), http.StatusInternalServerError)
 		}
 		return
 	}
 
-	appErr = p.API.KVSet(kvGPGBackup, []byte(*req.BackupGPG))
+	appErr := p.StoreGPGBackup(userID, *req.BackupGPG)
 	if appErr != nil {
 		http.Error(w, appErr.Error(), http.StatusInternalServerError)
 		return
@@ -108,7 +71,7 @@ func (p *Plugin) PushPubKey(c *Context, w http.ResponseWriter, r *http.Request) 
 
 	appErr = p.SendGPGBackup(userID)
 	if appErr != nil {
-		http.Error(w, "Error while sending GPG backup: "+appErr.Error(), http.StatusInternalServerError)
+		http.Error(w, "Error while sending GPG backup: "+appErr.Error(), appErr.StatusCode)
 		return
 	}
 }
@@ -136,22 +99,12 @@ func (p *Plugin) GetPubKeys(w http.ResponseWriter, r *http.Request) {
 
 	res := NewGetPubKeysReponse()
 	for _, uid := range req.UserIds {
-		pubkeyJSON, appErr := p.API.KVGet(StoreKeyPubKey(uid))
-		if appErr != nil {
-			http.Error(w, appErr.Error(), http.StatusInternalServerError)
-			return
-		}
-		if pubkeyJSON == nil {
-			res.PubKeys[uid] = nil
-			continue
-		}
-		var pubkey PubKey
-		err := json.Unmarshal(pubkeyJSON, &pubkey)
+		pubkey, err := p.GetUserPubKey(uid)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		res.PubKeys[uid] = &pubkey
+		res.PubKeys[uid] = pubkey
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -231,7 +184,7 @@ func (p *Plugin) SetChanEncryptionMethod(c *Context, w http.ResponseWriter, r *h
 	if method == ChanEncryptionMethodNone {
 		msg = fmt.Sprintf("@all: messages on this channel **aren't encrypted anymore**. Set by @%s", user.Username)
 	} else {
-		msg = fmt.Sprintf("@all: message on this channel are now encrypted. Set by @%s.\n**WARNING**: people not in this channel won't be able to read the backlog.", user.Username)
+		msg = fmt.Sprintf("@all: message on this channel are now encrypted. Set by @%s. Please note that **people not in this channel won't be able to read the backlog**.", user.Username)
 		noPubKeys, appErrMWK := p.GetChannelMembersWithoutKeys(chanID)
 		if appErrMWK != nil {
 			http.Error(w, appErrMWK.Error(), http.StatusInternalServerError)
@@ -261,118 +214,8 @@ func (p *Plugin) SetChanEncryptionMethod(c *Context, w http.ResponseWriter, r *h
 	}
 }
 
-// https://stackoverflow.com/a/62555190
-func GetStringInBetweenTwoString(str string, startS string, endS string) (result string, found bool) {
-	s := strings.Index(str, startS)
-	if s == -1 {
-		return result, false
-	}
-	newS := str[s+len(startS):]
-	e := strings.Index(newS, endS)
-	if e == -1 {
-		return result, false
-	}
-	result = newS[:e]
-	return result, true
-}
-
-func SanitizeGPGPubKey(str string) (string, error) {
-	const gpgHeader = "-----BEGIN PGP PUBLIC KEY BLOCK-----"
-	const gpgFooter = "-----END PGP PUBLIC KEY BLOCK-----"
-	key, found := GetStringInBetweenTwoString(str, gpgHeader, gpgFooter)
-	if !found {
-		return "", errors.New("invalid format")
-	}
-	return fmt.Sprintf("%s%s%s", gpgHeader, key, gpgFooter), nil
-}
-
 type GetGPGPubKeyResp struct {
 	Key string `json:"key"`
-}
-
-type KeyListing struct {
-	KeyID          string
-	Algo           int
-	KeyLen         int
-	CreationDate   time.Time
-	ExpirationDate time.Time
-	IsRevoked      bool
-	IsDisabled     bool
-	IsExpired      bool
-}
-
-func (k KeyListing) String() string {
-	flags := ""
-	if k.IsRevoked {
-		flags += "r"
-	}
-	if k.IsDisabled {
-		flags += "d"
-	}
-	if k.IsExpired {
-		flags += "e"
-	}
-	return fmt.Sprintf("%s [%s:%d] Created at %s Expired at %s %s", k.KeyID,
-		Algos[k.Algo],
-		k.KeyLen,
-		k.CreationDate,
-		k.ExpirationDate,
-		flags,
-	)
-}
-
-func ParseMachineReadableIndexes(str string) []KeyListing {
-	var ret []KeyListing
-	for _, line := range strings.Split(str, "\n") {
-		splittedLine := strings.Split(line, ":")
-
-		if len(splittedLine) == 7 && splittedLine[0] == "pub" {
-			keyListing := KeyListing{}
-			keyListing.KeyID = splittedLine[1]
-
-			if algo, err := strconv.ParseUint(splittedLine[2], 10, 32); err == nil {
-				if _, isAlgoValid := Algos[int(algo)]; isAlgoValid {
-					keyListing.Algo = int(algo)
-				}
-			}
-
-			if kL, err := strconv.ParseUint(splittedLine[3], 10, 32); err == nil {
-				keyListing.KeyLen = int(kL)
-			}
-			if unixTime, err := strconv.ParseInt(splittedLine[4], 10, 64); err == nil {
-				keyListing.CreationDate = time.Unix(unixTime, 0)
-			}
-
-			if unixTime, err := strconv.ParseInt(splittedLine[5], 10, 64); err == nil {
-				keyListing.ExpirationDate = time.Unix(unixTime, 0)
-			}
-			keyListing.IsRevoked = splittedLine[6] == "r"
-			keyListing.IsDisabled = splittedLine[6] == "d"
-			keyListing.IsExpired = splittedLine[6] == "e"
-
-			ret = append(ret, keyListing)
-		}
-	}
-	return ret
-}
-func GpgServerExtractFirstNotRevokedLink(gpgKeyServer string, email string) (string, error) {
-	resp, err := http.Get(fmt.Sprintf("%s/pks/lookup?op=index&options=mr&search=%s", gpgKeyServer, url.QueryEscape(email)))
-	if nil != err {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if nil != err {
-		return "", err
-	}
-
-	for _, i := range ParseMachineReadableIndexes(string(body)) {
-		if !i.IsExpired && !i.IsDisabled && !i.IsRevoked {
-			return i.KeyID, nil
-		}
-	}
-	return "", fmt.Errorf("no valid key found")
 }
 
 func (p *Plugin) GetGPGPubKey(c *Context, w http.ResponseWriter, r *http.Request) {
@@ -387,7 +230,7 @@ func (p *Plugin) GetGPGPubKey(c *Context, w http.ResponseWriter, r *http.Request
 	// https://keys.openpgp.org/vks/v1/by-email/adrien@guinet.me
 	// Support PKS for now (keys.qb doesn't support vks)
 	gpgKeyServer := p.getConfiguration().GPGKeyServer
-	keyid, err := GpgServerExtractFirstNotRevokedLink(gpgKeyServer, user.Email)
+	keyid, err := GpgServerExtractFirstNotRevokedID(gpgKeyServer, user.Email)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Unable to get GPG key for '%s': %s", user.Email, err.Error()), http.StatusInternalServerError)
 		return
@@ -424,7 +267,7 @@ func (p *Plugin) GetGPGPubKey(c *Context, w http.ResponseWriter, r *http.Request
 }
 
 func (p *Plugin) InitializeAPI() {
-	p.ChanEncrMethods = NewChanEncrMethodDB(p)
+	p.ChanEncrMethods = NewChanEncrMethodDB(p.API)
 
 	// Inspired by the Github plugin
 	p.router = mux.NewRouter()

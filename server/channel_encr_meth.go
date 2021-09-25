@@ -47,8 +47,8 @@ type ChanEncrMethodDB struct {
 	API   plugin.API
 }
 
-func NewChanEncrMethodDB(p *Plugin) *ChanEncrMethodDB {
-	return &ChanEncrMethodDB{mutex: sync.RWMutex{}, API: p.API}
+func NewChanEncrMethodDB(api plugin.API) *ChanEncrMethodDB {
+	return &ChanEncrMethodDB{mutex: sync.RWMutex{}, API: api}
 }
 
 func (db *ChanEncrMethodDB) get(chanID string) ChanEncryptionMethod {
@@ -96,27 +96,4 @@ func (db *ChanEncrMethodDB) setIfDifferent(chanID string, newMethod ChanEncrypti
 		return false, appErr
 	}
 	return true, nil
-}
-
-func (p *Plugin) GetChannelMembersWithoutKeys(chanID string) ([]string, *model.AppError) {
-	ret := make([]string, 0)
-
-	cfg := p.API.GetConfig()
-	maxUsersPerTeam := *cfg.TeamSettings.MaxUsersPerTeam
-	members, appErr := p.API.GetChannelMembers(chanID, 0, maxUsersPerTeam)
-	if appErr != nil {
-		return ret, appErr
-	}
-
-	for _, member := range *members {
-		userID := member.UserId
-		key, appErr := p.API.KVGet(StoreKeyPubKey(userID))
-		if appErr != nil {
-			return ret, appErr
-		}
-		if key == nil {
-			ret = append(ret, userID)
-		}
-	}
-	return ret, nil
 }

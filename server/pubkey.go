@@ -2,8 +2,12 @@ package main
 
 import (
 	"crypto/elliptic"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
+
+	"github.com/mattermost/mattermost-server/v5/model"
 )
 
 var ECCurve = elliptic.P256()
@@ -85,4 +89,64 @@ func (pubkey *PubKey) Validate() bool {
 	}
 	// encr & sign must be different
 	return !encr.Equals(sign)
+}
+
+func (p *Plugin) SetUserPubKey(userID string, pk *PubKey) error {
+	pubkeyData, err := json.Marshal(pk)
+	if err != nil {
+		return err
+	}
+
+	appErr := p.API.KVSet(StoreKeyPubKey(userID), pubkeyData)
+	if appErr != nil {
+		return errors.New(appErr.Error())
+	}
+	return nil
+}
+
+func (p *Plugin) GetUserPubKey(userID string) (*PubKey, error) {
+	pubkeyJSON, appErr := p.API.KVGet(StoreKeyPubKey(userID))
+	if appErr != nil {
+		return nil, errors.New(appErr.Error())
+	}
+	if pubkeyJSON == nil {
+		return nil, nil
+	}
+	var pubkey PubKey
+	err := json.Unmarshal(pubkeyJSON, &pubkey)
+	if err != nil {
+		return nil, err
+	}
+	return &pubkey, nil
+}
+
+func (p *Plugin) HasUserPubKey(userID string) (bool, *model.AppError) {
+	pk, appErr := p.API.KVGet(StoreKeyPubKey(userID))
+	if appErr != nil {
+		return false, appErr
+	}
+	return pk != nil, nil
+}
+
+func (p *Plugin) GetChannelMembersWithoutKeys(chanID string) ([]string, *model.AppError) {
+	ret := make([]string, 0)
+
+	cfg := p.API.GetConfig()
+	maxUsersPerTeam := *cfg.TeamSettings.MaxUsersPerTeam
+	members, appErr := p.API.GetChannelMembers(chanID, 0, maxUsersPerTeam)
+	if appErr != nil {
+		return ret, appErr
+	}
+
+	for _, member := range *members {
+		userID := member.UserId
+		hasKey, appErr := p.HasUserPubKey(userID)
+		if appErr != nil {
+			return ret, appErr
+		}
+		if !hasKey {
+			ret = append(ret, userID)
+		}
+	}
+	return ret, nil
 }

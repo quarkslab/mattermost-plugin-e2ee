@@ -1,11 +1,7 @@
 package main
 
 import (
-	"bytes"
-	"crypto/elliptic"
-	"crypto/rand"
 	"encoding/json"
-	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -16,28 +12,6 @@ import (
 
 	"github.com/quarkslab/mattermost-plugin-e2ee/server/testutils"
 )
-
-func SerializePubKey(x *big.Int, y *big.Int) []byte {
-	CL := ECCurve.Params().BitSize / 8
-	xb := make([]byte, CL)
-	x.FillBytes(xb)
-	yb := make([]byte, CL)
-	y.FillBytes(yb)
-	ret := bytes.Buffer{}
-	ret.WriteByte(0x04) // uncompressed point
-	ret.Write(xb)
-	ret.Write(yb)
-	return ret.Bytes()
-}
-
-func GenerateValidPubKey() PubKey {
-	_, x0, y0, _ := elliptic.GenerateKey(ECCurve, rand.Reader)
-	_, x1, y1, _ := elliptic.GenerateKey(ECCurve, rand.Reader)
-	return PubKey{
-		SerializePubKey(x0, y0),
-		SerializePubKey(x1, y1),
-	}
-}
 
 type TestDesc struct {
 	name             string
