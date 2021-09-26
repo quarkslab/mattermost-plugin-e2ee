@@ -30,6 +30,7 @@ import {observeStore} from './utils';
 import {pubkeyStore} from './pubkeys_storage';
 import {KeyStore} from './keystore';
 import {msgCache} from './msg_cache';
+import HKP from './hkp';
 import E2EEImportModal from './components/e2ee_import_modal';
 
 const b64 = require('base64-arraybuffer');

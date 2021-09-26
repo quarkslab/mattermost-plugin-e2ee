@@ -4,9 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
-	"net/url"
 	"runtime/debug"
 	"time"
 
@@ -214,56 +212,18 @@ func (p *Plugin) SetChanEncryptionMethod(c *Context, w http.ResponseWriter, r *h
 	}
 }
 
-type GetGPGPubKeyResp struct {
-	Key string `json:"key"`
+type GetKeyServerResp struct {
+	URL string `json:"url"`
 }
 
-func (p *Plugin) GetGPGPubKey(c *Context, w http.ResponseWriter, r *http.Request) {
-	userID := c.UserID
-	user, appErr := p.API.GetUser(userID)
-	if appErr != nil {
-		http.Error(w, appErr.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// http://keys.qb/pks/lookup?op=get&options=mr&search=aguinet@quarkslab.com
-	// https://keys.openpgp.org/vks/v1/by-email/adrien@guinet.me
-	// Support PKS for now (keys.qb doesn't support vks)
+func (p *Plugin) GetKeyServer(c *Context, w http.ResponseWriter, r *http.Request) {
 	gpgKeyServer := p.getConfiguration().GPGKeyServer
-	keyid, err := GpgServerExtractFirstNotRevokedID(gpgKeyServer, user.Email)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Unable to get GPG key for '%s': %s", user.Email, err.Error()), http.StatusInternalServerError)
+	if gpgKeyServer == "" {
+		http.Error(w, "undefined GPG key server", http.StatusNotFound)
 		return
 	}
-	url := fmt.Sprintf("%s/pks/lookup?op=get&options=mr&search=0x%s", gpgKeyServer, url.QueryEscape(keyid))
-	//nolint:gosec
-	resp, err := http.Get(url)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Unable to get GPG key for '%s': %s", user.Email, err.Error()), http.StatusInternalServerError)
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		http.Error(w, fmt.Sprintf("Unable to get GPG key for '%s': GPG key server returned status code %d '%s'", user.Email, resp.StatusCode, url), resp.StatusCode)
-		return
-	}
-
-	// We sanitize the GPG key as some server wraps it around some <pre></pre>
-	// HTML tags (e.g. keys.qb)
-	keytxt, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	key, err := SanitizeGPGPubKey(string(keytxt))
-	if err != nil {
-		http.Error(w, "Error while parsing the GPG key returned by the server: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/pgp-keys")
-	p.WriteJSON(w, GetGPGPubKeyResp{Key: key})
+	w.Header().Set("Content-Type", "application/json")
+	p.WriteJSON(w, GetKeyServerResp{URL: gpgKeyServer})
 }
 
 func (p *Plugin) InitializeAPI() {
@@ -279,7 +239,7 @@ func (p *Plugin) InitializeAPI() {
 	apiRouter.HandleFunc("/pubkey/get", p.CheckAuth(p.GetPubKeys)).Methods(http.MethodPost)
 	apiRouter.HandleFunc("/channel/encryption_method", p.CheckAuth(p.AttachContext(p.GetChanEncryptionMethod))).Methods(http.MethodGet)
 	apiRouter.HandleFunc("/channel/encryption_method", p.CheckAuth(p.AttachContext(p.SetChanEncryptionMethod))).Methods(http.MethodPost)
-	apiRouter.HandleFunc("/gpg/get_pub_key", p.CheckAuth(p.AttachContext(p.GetGPGPubKey))).Methods(http.MethodGet)
+	apiRouter.HandleFunc("/gpg/key_server", p.CheckAuth(p.AttachContext(p.GetKeyServer))).Methods(http.MethodGet)
 }
 
 func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {

@@ -49,6 +49,10 @@ export default class ClientClass {
         return (await this.doGet(this.url + '/gpg/get_pub_key').then((r) => r.json())).key;
     }
 
+    async getGPGKeyServer(): Promise<string> {
+        return (await this.doGet(this.url + '/gpg/key_server').then((r) => r.json())).url;
+    }
+
     private async doGet(url: string, headers = {}) {
         const options = {
             method: 'get',

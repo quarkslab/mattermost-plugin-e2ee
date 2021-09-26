@@ -2,6 +2,7 @@ import {Store, Action} from 'redux';
 import {GlobalState} from 'mattermost-redux/types/store';
 import {getCurrentUserId} from 'mattermost-redux/selectors/entities/users';
 import {ActionFunc, DispatchFunc, GetStateFunc, ActionResult} from 'mattermost-redux/types/actions';
+import {Client4} from 'mattermost-redux/client';
 
 import {PrivateKeyMaterial, PublicKeyMaterial, pubkeyEqual} from './e2ee';
 import {KeyStore, KeyStoreError} from './keystore';
@@ -11,6 +12,7 @@ import {gpgBackupFormat, gpgEncrypt, gpgParseBackup} from './backup_gpg';
 import {getPubKeys, setPrivKey} from './actions';
 import {selectPrivkey, selectKS} from './selectors';
 import {observeStore} from './utils';
+import HKP from './hkp';
 
 type StoreTy = Store;
 
@@ -131,12 +133,16 @@ export class AppPrivKey {
     static generate(): ActionFunc {
         return async (dispatch: DispatchFunc, getState: GetStateFunc) => {
             const privkeyProm = PrivateKeyMaterial.create(true /* extractible */);
-            const gpgArmoredPubKeyProm = APIClient.getGPGPubKey();
+            const gpgArmoredPubKeyProm = dispatch(this.getGPGPubKey());
             let privkey: PrivateKeyMaterial = await privkeyProm;
             const backupClear = await gpgBackupFormat(privkey);
             let backupGPG;
             try {
-                const gpgArmoredPubKey = await gpgArmoredPubKeyProm;
+                // @ts-ignore
+                const {data: gpgArmoredPubKey, error} = await gpgArmoredPubKeyProm;
+                if (error) {
+                    throw error;
+                }
                 backupGPG = {data: await gpgEncrypt(backupClear, gpgArmoredPubKey)};
             } catch (e) {
                 backupGPG = {error: e};
@@ -145,14 +151,48 @@ export class AppPrivKey {
             // Reimport the key as non extractible
             privkey = await gpgParseBackup(backupClear, false /* extractible */);
 
-            dispatch(AppPrivKey.setPrivKey(privkey, true /* store */, backupGPG.data || null));
+            // @ts-ignore
+            const {error} = await dispatch(AppPrivKey.setPrivKey(privkey, true /* store */, backupGPG.data || null));
+            if (error) {
+                return {error};
+            }
             return {data: {privkey, backupGPG, backupClear}};
+        };
+    }
+
+    private static getGPGPubKey() {
+        return async (dispatch: DispatchFunc, getState: GetStateFunc) => {
+            try {
+                const userId = getCurrentUserId(getState());
+                const email = (await Client4.getUser(userId)).email;
+
+                const gpgKeyServer = await APIClient.getGPGKeyServer();
+                const hkp = new HKP(gpgKeyServer);
+                const keys = await hkp.index(email);
+
+                // Get first valid key id
+                const key = keys.find((k) => !k.IsRevoked && !k.IsDisabled && !k.IsExpired);
+                if (typeof key === 'undefined') {
+                    return {error: 'no valid key found'};
+                }
+
+                const msg = 'We are going to encrypt your private key with a public GPG key gathered from "' + gpgKeyServer + '", whose ID is 0x' + key.KeyID + '.\nDo you confirm this public key belongs to you?';
+                /* eslint-disable no-alert */
+                if (!confirm(msg)) {
+                    return {error: 'untrusted public GPG key'};
+                }
+
+                // Get key
+                const keyArmored = await hkp.get('0x' + key.KeyID);
+                return {data: keyArmored};
+            } catch (e) {
+                return {error: e};
+            }
         };
     }
 
     private static setPrivKey(key: PrivateKeyMaterial, store: boolean, backupGPG: string | null) {
         return async (dispatch: DispatchFunc, getState: GetStateFunc) => {
-            // @ts-ignore
             await dispatch(setPrivKey(key));
             if (store) {
                 try {

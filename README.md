@@ -32,7 +32,8 @@ ID.
 
 `/e2ee init` generates your private key and displays a backup you can save in a
 secure location. If it manages to do so, it will also send a GPG encrypted
-backup of that private key.
+backup of that private key. In that case, you will be asked to verify the GPG
+key server used and the public key ID retrieved are legit.
 
 `/e2ee start` sets the current channel in encryption mode. This means that
 every message sent on that channel must be encrypted. `/e2ee stop` puts the
@@ -56,9 +57,11 @@ like [KeePass](https://keepass.info/). Make sure that you have the full text
 between `----BEGIN MM E2EE PRIVATE KEY----` and `----END MM E2EE PRIVATE
 KEY-----`, with these headers included.
 
-Moreover, if a GPG server key has been configured, and a public key associated with your
-Mattermost account's email exists, you will receive a GPG encrypted backup of
-your private key.
+Moreover, if a GPG server key has been configured, and a public key associated
+with your Mattermost account's email exists, you will be asked to verify that
+the GPG key server used to get that key and the public key ID retrieved itself
+are legit. If you confirm, you will receive a GPG encrypted backup of your
+private key.
 
 <div align="center" width="100%">
   <img width="70%" src="docs/gpgbackup.png" />
