@@ -24,8 +24,8 @@
                 "key": "GPGKeyServer",
                 "display_name": "URL of the GPG key server:",
                 "type": "text",
-                "help_text": "The URL of the GPG key server to contact to get users' public GPG keys",
-                "placeholder": "https://keys.openpgp.org/",
+                "help_text": "The URL of the GPG key server to contact to get users' public GPG keys. Leave empty to deactivate GPG encrypted backups.",
+                "placeholder": "Example: https://keys.openpgp.org/",
                 "default": "https://keys.openpgp.org/"
             },
             {

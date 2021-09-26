@@ -1,5 +1,5 @@
-import ClientClass from './client';
+import {ClientClass, GPGBackupDisabledError} from './client';
 
 const APIClient = new ClientClass();
 
-export default APIClient;
+export {APIClient, GPGBackupDisabledError};

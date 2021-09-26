@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/mattermost/mattermost-server/v5/model"
@@ -52,6 +53,10 @@ func (p *Plugin) PushPubKey(c *Context, w http.ResponseWriter, r *http.Request) 
 			"userID": userID,
 		},
 		&model.WebsocketBroadcast{OmitUsers: map[string]bool{userID: true}})
+
+	if !p.GPGBackupEnabled() {
+		return
+	}
 
 	if req.BackupGPG == nil {
 		appErr := p.DeleteGPGBackup(userID)
@@ -217,13 +222,17 @@ type GetKeyServerResp struct {
 }
 
 func (p *Plugin) GetKeyServer(c *Context, w http.ResponseWriter, r *http.Request) {
-	gpgKeyServer := p.getConfiguration().GPGKeyServer
-	if gpgKeyServer == "" {
-		http.Error(w, "undefined GPG key server", http.StatusNotFound)
+	if !p.GPGBackupEnabled() {
+		http.Error(w, "GPG backup disabled", http.StatusNotFound)
 		return
 	}
+	gpgKeyServer := p.getConfiguration().GPGKeyServer
 	w.Header().Set("Content-Type", "application/json")
 	p.WriteJSON(w, GetKeyServerResp{URL: gpgKeyServer})
+}
+
+func (p *Plugin) GPGBackupEnabled() bool {
+	return len(strings.TrimSpace(p.getConfiguration().GPGKeyServer)) > 0
 }
 
 func (p *Plugin) InitializeAPI() {

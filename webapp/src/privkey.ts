@@ -6,7 +6,7 @@ import {Client4} from 'mattermost-redux/client';
 
 import {PrivateKeyMaterial, PublicKeyMaterial, pubkeyEqual} from './e2ee';
 import {KeyStore, KeyStoreError} from './keystore';
-import APIClient from './client';
+import {APIClient} from './client';
 import {PrivKeyTypes, PubKeyTypes, KSTypes} from './action_types';
 import {gpgBackupFormat, gpgEncrypt, gpgParseBackup} from './backup_gpg';
 import {getPubKeys, setPrivKey} from './actions';

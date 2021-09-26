@@ -104,14 +104,10 @@ func (p *Plugin) ShowGPGBackup(args *model.CommandArgs) *model.AppError {
 func (p *Plugin) ExecuteCommand(c *plugin.Context, args *model.CommandArgs) (*model.CommandResponse, *model.AppError) {
 	split := strings.Fields(args.Command)
 	command := split[0]
-	// parameters := []string{}
 	action := "help"
 	if len(split) > 1 {
 		action = split[1]
 	}
-	/*if len(split) > 2 {
-		parameters = split[2:]
-	}*/
 
 	if command != "/e2ee" {
 		return &model.CommandResponse{}, nil

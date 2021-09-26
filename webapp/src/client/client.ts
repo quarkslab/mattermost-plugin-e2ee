@@ -5,7 +5,9 @@ import {id as pluginId} from 'manifest';
 import {PublicKeyMaterial, PublicKeyMaterialJSON} from 'e2ee';
 import {debouncedMerge, debouncedMergeMapArrayReducer} from 'utils';
 
-export default class ClientClass {
+export class GPGBackupDisabledError extends Error { }
+
+export class ClientClass {
     url!: string
     getPubKeysDebounced: (userIds: Array<string>) => Promise<Map<string, PublicKeyMaterial>>
 
@@ -50,7 +52,14 @@ export default class ClientClass {
     }
 
     async getGPGKeyServer(): Promise<string> {
-        return (await this.doGet(this.url + '/gpg/key_server').then((r) => r.json())).url;
+        try {
+            return (await this.doGet(this.url + '/gpg/key_server').then((r) => r.json())).url;
+        } catch (e) {
+            if (e.status_code === 404) {
+                throw new GPGBackupDisabledError();
+            }
+            throw e;
+        }
     }
 
     private async doGet(url: string, headers = {}) {

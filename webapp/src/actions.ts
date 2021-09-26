@@ -3,7 +3,7 @@ import {getCurrentUserId} from 'mattermost-redux/selectors/entities/users';
 import {PostTypes} from 'mattermost-redux/action_types';
 
 import {PubKeyTypes, EncrStatutTypes, ImportModalTypes, PrivKeyTypes} from './action_types';
-import APIClient from './client';
+import {APIClient} from './client';
 import {StateID} from './constants';
 import {PrivateKeyMaterial, PublicKeyMaterial} from './e2ee';
 import {getPluginState, selectPubkeys} from './selectors';

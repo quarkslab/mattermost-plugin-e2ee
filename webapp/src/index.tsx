@@ -11,9 +11,9 @@ import * as UserActions from 'mattermost-redux/actions/users';
 
 // eslint-disable-next-line import/no-unresolved
 
-import APIClient from './client';
 import manifest from './manifest';
 import Icon from './components/icon';
+import {APIClient, GPGBackupDisabledError} from './client';
 import {getServerRoute, selectPubkeys, selectPrivkey, selectKS} from './selectors';
 import {EncrStatutTypes, EventTypes, PubKeyTypes} from './action_types';
 import {getPubKeys, getChannelEncryptionMethod, sendEphemeralPost, openImportModal} from './actions';
@@ -135,7 +135,11 @@ export default class Plugin {
             // Push the public key and backup to the server
             msg = 'A new private key has been generated. ';
             if (backupGPG.error) {
-                msg += "Unfortunately, we didn't manage to encrypt it with your GPG key: " + backupGPG.error;
+                if (backupGPG.error instanceof GPGBackupDisabledError) {
+                    msg += "We didn't backup it because GPG backup has been disabled by your administrator.";
+                } else {
+                    msg += "Unfortunately, we didn't manage to encrypt it with your GPG key: " + backupGPG.error;
+                }
             } else {
                 msg += 'You should have received a GPG encrypted backup by mail.';
             }

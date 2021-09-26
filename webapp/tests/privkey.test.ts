@@ -9,7 +9,7 @@ import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 
 import {AppPrivKey, AppPrivKeyIsDifferent} from '../src/privkey';
-import APIClient from '../src/client';
+import {APIClient} from '../src/client';
 import {PubKeyTypes, PrivKeyTypes, KSTypes} from '../src/action_types';
 import {PublicKeyMaterial, PrivateKeyMaterial} from '../src/e2ee';
 import {gpgBackupFormat} from '../src/backup_gpg';
