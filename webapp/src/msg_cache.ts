@@ -37,6 +37,10 @@ class MsgCacheImpl {
         return this.cacheDecrypted.get(id) || null;
     }
 
+    clear() {
+        this.cacheDecrypted.clear();
+    }
+
     private static checkSize(obj: Map<string, string>) {
         if (obj.size < MAX_MSGS) {
             return;

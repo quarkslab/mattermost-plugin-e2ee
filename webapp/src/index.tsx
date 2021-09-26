@@ -4,7 +4,7 @@ import {GlobalState} from 'mattermost-redux/types/store';
 import {Post} from 'mattermost-redux/types/posts';
 import {Channel} from 'mattermost-redux/types/channels';
 import {getCurrentChannelId} from 'mattermost-redux/selectors/entities/common';
-import {makeGetProfilesInChannel} from 'mattermost-redux/selectors/entities/users';
+import {getCurrentUserId} from 'mattermost-redux/selectors/entities/users';
 import {Client4} from 'mattermost-redux/client';
 
 import * as UserActions from 'mattermost-redux/actions/users';
@@ -60,9 +60,15 @@ export default class Plugin {
         APIClient.setServerRoute(getServerRoute(store.getState()));
 
         observeStore(this.store, selectPubkeys, this.checkPubkeys.bind(this));
+        observeStore(this.store, selectPrivkey, async (s: any, v: any) => {
+            msgCache.clear();
+        });
+        observeStore(this.store, getCurrentUserId, async (s: any, v: any) => {
+            msgCache.clear();
 
-        // @ts-ignore
-        await store.dispatch(AppPrivKey.init(store));
+            // @ts-ignore
+            await store.dispatch(AppPrivKey.init(store));
+        });
     }
 
     private async checkPubkeys(store: Store, pubkeys: PubKeysState) {
