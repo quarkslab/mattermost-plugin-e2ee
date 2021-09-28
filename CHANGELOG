@@ -1,3 +1,15 @@
+0.4.0 (28/09/2021)
+-----
+
+General:
+* GPG key is now retrieved client-side. A confirmation box ask the client to
+  verify the key server URL (in case the server is giving a rogue one) and the
+  received key ID.
+* GPG backup is now optional.
+
+webapp:
+* use persistent storage on Firefox
+
 0.3.0 (20/09/2021)
 -----
 
