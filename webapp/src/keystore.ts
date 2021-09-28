@@ -36,6 +36,9 @@ export class KeyStore {
     }
 
     static async open(userID: string): Promise<KeyStore> {
+        if (navigator.storage && navigator.storage.persist) {
+            await navigator.storage.persist();
+        }
         return new Promise((fulfill, reject) => {
             if (!window.indexedDB) {
                 reject(new Error('IndexedDB is not supported by this browser.'));

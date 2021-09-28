@@ -41,6 +41,14 @@ channel back in clear text mode.
 
 `/e2ee help` shows a help message with the available commands.
 
+## Persistent storage on Firefox
+
+We use [persistent storage on
+Firefox](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API/Browser_storage_limits_and_eviction_criteria#different_types_of_data_storage),
+so that your private key doesn't get deleted by Firefox, forcing you to
+reimport it on a recurrent basis. Firefox will ask you to accept for the
+Mattermost instance to do so. Click on `Accept` if that's something you wish.
+
 ## Detailed usage instructions
 
 ### Private key generation & backup
