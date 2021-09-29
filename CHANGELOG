@@ -1,3 +1,9 @@
+0.5.0 (29/09/2021)
+-----
+
+server:
+* Allow custom message types to be always posted (in encrypted channels)
+
 0.4.0 (28/09/2021)
 -----
 
