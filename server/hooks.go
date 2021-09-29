@@ -30,6 +30,11 @@ func (p *Plugin) MessageWillBePosted(c *plugin.Context, post *model.Post) (*mode
 		}
 	}
 
+	// Check if the type of the message is whitelisted
+	if _, has := p.AlwaysAllowMsgTypes[post.Type]; has {
+		return nil, ""
+	}
+
 	// If the message is not encrypted, rejects it!
 	if post.Type != "custom_e2ee" {
 		return nil, "Unencrypted messages can't be sent on an encrypted channel."

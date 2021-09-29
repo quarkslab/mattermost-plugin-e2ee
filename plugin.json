@@ -35,6 +35,14 @@
                 "help_text": "We prevent unencrypted messages to be posted on encrypted channels. This allows bot users to override this rule.",
                 "placeholder": "",
                 "default": true
+            },
+            {
+                "key": "AlwaysAllowMsgTypes",
+                "display_name": "Custom messages types to always allow:",
+                "type": "text",
+                "help_text": "We prevent unencrypted messages to be posted on encrypted channels. This setting allows some custom message types to override this rule. The list should be comma separated. For instance, if you want the Jitsi plugin to work even on encrypted channels, you can set custom_jitsi here.",
+                "placeholder": "",
+                "default": ""
             }
         ]
     }

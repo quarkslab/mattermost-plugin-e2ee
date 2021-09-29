@@ -2,6 +2,7 @@ package main
 
 import (
 	"reflect"
+	"strings"
 
 	"github.com/pkg/errors"
 )
@@ -18,8 +19,9 @@ import (
 // If you add non-reference types to your configuration struct, be sure to rewrite Clone as a deep
 // copy appropriate for your types.
 type configuration struct {
-	GPGKeyServer     string
-	BotCanAlwaysPost bool
+	GPGKeyServer        string
+	BotCanAlwaysPost    bool
+	AlwaysAllowMsgTypes string
 }
 
 // Clone shallow copies the configuration. Your implementation may require a deep copy if
@@ -68,6 +70,13 @@ func (p *Plugin) setConfiguration(configuration *configuration) {
 	}
 
 	p.configuration = configuration
+
+	// Compute the set of whitelisted message types
+	MsgTypes := strings.Split(strings.TrimSpace(configuration.AlwaysAllowMsgTypes), ",")
+	p.AlwaysAllowMsgTypes = make(map[string]bool)
+	for _, v := range MsgTypes {
+		p.AlwaysAllowMsgTypes[strings.TrimSpace(v)] = true
+	}
 }
 
 // OnConfigurationChange is invoked when configuration changes may have been made.

@@ -43,6 +43,8 @@ type Plugin struct {
 	// setConfiguration for usage.
 	configuration *configuration
 
+	AlwaysAllowMsgTypes map[string]bool
+
 	router *mux.Router
 }
 
