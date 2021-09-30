@@ -1,6 +1,6 @@
 {
     "ServiceSettings": {
-        "EnableLocalMode": true,
+        "EnableLocalMode": false,
         "LocalModeSocketLocation": "/var/tmp/mattermost_local.socket",
         "SiteURL": "http://127.0.0.1:8065/",
         "WebsocketURL": "",

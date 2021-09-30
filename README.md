@@ -198,7 +198,6 @@ We make a build environment based on Mattermost's [local node docker](https://do
 
 We adapt the `mattermost/mattermost-preview` image to add various things:
 
-* enable local mode (see below)
 * enable the creation of tokens
 * enable the creation of accounts without invitations
 
@@ -215,7 +214,7 @@ volume to get a Mattermost unix socket that will help to easily deploy our plugi
 
 ```
 $ cd /path/to/project
-$ docker run --name mminstance -d --publish 8065:8065 --add-host dockerhost:127.0.0.1 -v $PWD/docker/mattersock:/var/tmp/ matterdev 
+$ docker run --name mminstance -d --publish 8065:8065 --add-host dockerhost:127.0.0.1 matterdev
 ```
 
 It takes a few minutes to boot. You can then access the instance at `http://127.0.0.1:8065`. Create a user and a team.
