@@ -1,4 +1,8 @@
-# Mattermost E2EE plugin
+<div align="center" width="100%">
+  <img width="20%" src="assets/logo.svg" />
+</div>
+
+# Mattermost E2EE plugin (by [Quarkslab](https://quarkslab.com))
 
 This plugin brings end-to-end encryption (E2EE) to Mattermost. It uses the
 [WebCrypto
