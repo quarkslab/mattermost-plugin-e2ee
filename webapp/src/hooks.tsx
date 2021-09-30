@@ -1,51 +1,49 @@
 import React from 'react';
-import {Store, Action} from 'redux';
-import {GlobalState} from 'mattermost-redux/types/store';
+import {Store} from 'redux';
+import {getCurrentUserId} from 'mattermost-redux/selectors/entities/users';
+import {getCurrentChannelId} from 'mattermost-redux/selectors/entities/common';
 import {Post} from 'mattermost-redux/types/posts';
 import {Channel} from 'mattermost-redux/types/channels';
-import {getCurrentChannelId} from 'mattermost-redux/selectors/entities/common';
-import {getCurrentUserId} from 'mattermost-redux/selectors/entities/users';
 import {Client4} from 'mattermost-redux/client';
-
 import * as UserActions from 'mattermost-redux/actions/users';
 
-// eslint-disable-next-line import/no-unresolved
-
-import manifest from './manifest';
 import Icon from './components/icon';
-import {APIClient, GPGBackupDisabledError} from './client';
-import {getServerRoute, selectPubkeys, selectPrivkey, selectKS} from './selectors';
-import {EncrStatutTypes, EventTypes, PubKeyTypes} from './action_types';
 import {getPubKeys, getChannelEncryptionMethod, sendEphemeralPost, openImportModal} from './actions';
-import Reducer from './reducers';
-import {E2EE_POST_TYPE, E2EE_CHAN_ENCR_METHOD_NONE, E2EE_CHAN_ENCR_METHOD_P2P} from './constants';
-import E2EEPost from './components/e2ee_post';
-import {PublicKeyMaterial} from './e2ee';
-import {encryptPost} from './e2ee_post';
-import {AppPrivKey, AppPrivKeyIsDifferent} from './privkey';
+import {EncrStatutTypes, EventTypes, PubKeyTypes} from './action_types';
+import {APIClient, GPGBackupDisabledError} from './client';
+import {E2EE_CHAN_ENCR_METHOD_NONE, E2EE_CHAN_ENCR_METHOD_P2P} from './constants';
 // eslint-disable-next-line import/no-unresolved
 import {PluginRegistry, ContextArgs} from './types/mattermost-webapp';
-import {MyActionResult, PubKeysState} from './types';
-import {observeStore} from './utils';
-import {pubkeyStore} from './pubkeys_storage';
-import {KeyStore} from './keystore';
+import {selectPubkeys, selectPrivkey, selectKS} from './selectors';
 import {msgCache} from './msg_cache';
-import HKP from './hkp';
-import E2EEImportModal from './components/e2ee_import_modal';
+import {AppPrivKey} from './privkey';
+import {encryptPost} from './e2ee_post';
+import {observeStore} from './utils';
+import {MyActionResult, PubKeysState} from './types';
+import {pubkeyStore} from './pubkeys_storage';
 
-const b64 = require('base64-arraybuffer');
+export default class E2EEHooks {
+    store: Store
 
-export default class Plugin {
-    store?: Store
-
-    public async initialize(registry: PluginRegistry, store: Store<GlobalState, Action<Record<string, unknown>>>) {
+    constructor(store: Store) {
         this.store = store;
 
-        registry.registerRootComponent(E2EEImportModal);
-        registry.registerReducer(Reducer);
+        observeStore(store, selectPubkeys, this.checkPubkeys.bind(this));
+        observeStore(store, selectPrivkey, async (s: any, v: any) => {
+            msgCache.clear();
+        });
+        observeStore(store, getCurrentUserId, async (s: any, v: any) => {
+            msgCache.clear();
+
+            // @ts-ignore
+            await store.dispatch(AppPrivKey.init(store));
+        });
+    }
+
+    register(registry: PluginRegistry) {
         registry.registerMessageWillBePostedHook(this.messageWillBePosted.bind(this));
         registry.registerSlashCommandWillBePostedHook(this.slashCommand.bind(this));
-        registry.registerPostTypeComponent(E2EE_POST_TYPE, E2EEPost);
+
         registry.registerWebSocketEventHandler('custom_com.quarkslab.e2ee_channelStateChanged', this.channelStateChanged.bind(this));
         registry.registerWebSocketEventHandler('custom_com.quarkslab.e2ee_newPubkey', this.onNewPubKey.bind(this));
         registry.registerReconnectHandler(this.onReconnect.bind(this));
@@ -57,19 +55,6 @@ export default class Plugin {
             'Toggle channel encryption',
             'Toggle channel encryption',
         );
-
-        APIClient.setServerRoute(getServerRoute(store.getState()));
-
-        observeStore(this.store, selectPubkeys, this.checkPubkeys.bind(this));
-        observeStore(this.store, selectPrivkey, async (s: any, v: any) => {
-            msgCache.clear();
-        });
-        observeStore(this.store, getCurrentUserId, async (s: any, v: any) => {
-            msgCache.clear();
-
-            // @ts-ignore
-            await store.dispatch(AppPrivKey.init(store));
-        });
     }
 
     private async checkPubkeys(store: Store, pubkeys: PubKeysState) {
@@ -122,30 +107,34 @@ export default class Plugin {
     private async handleInit(cmdArgs: Array<string>, ctxArgs: ContextArgs) {
         let msg;
         const force = cmdArgs[0] === '--force';
-        const keyInBrowser = AppPrivKey.exists(this.store!.getState());
+        const keyInBrowser = AppPrivKey.exists(this.store.getState());
         const {data: pubKeyRegistered} = await this.dispatch(AppPrivKey.userHasPubkey());
         if (!force && keyInBrowser) {
             msg = 'A private key is already present in your browser, so we are not overriding it. Use --force to erase it.';
         } else if (!force && pubKeyRegistered) {
             msg = "A key is already known for your user to the Mattermost server. You can import its backup using /e2ee import.\nYou can use --force to still generate a new key, but you won't be able to read old encrypted messages, and other users won't be able to read your old messages.";
         } else {
-            const {data} = await this.dispatch(AppPrivKey.generate());
-            const {privkey, backupGPG, backupClear} = data;
-
-            // Push the public key and backup to the server
-            msg = 'A new private key has been generated. ';
-            if (backupGPG.error) {
-                if (backupGPG.error instanceof GPGBackupDisabledError) {
-                    msg += "We didn't backup it because GPG backup has been disabled by your administrator.";
-                } else {
-                    msg += "Unfortunately, we didn't manage to encrypt it with your GPG key: " + backupGPG.error;
-                }
+            const {data, error} = await this.dispatch(AppPrivKey.generate());
+            if (error) {
+                msg = 'Error while generating: ' + error;
             } else {
-                msg += 'You should have received a GPG encrypted backup by mail.';
+                const {privkey, backupGPG, backupClear} = data;
+
+                // Push the public key and backup to the server
+                msg = 'A new private key has been generated. ';
+                if (backupGPG.error) {
+                    if (backupGPG.error instanceof GPGBackupDisabledError) {
+                        msg += "We didn't backup it because GPG backup has been disabled by your administrator.";
+                    } else {
+                        msg += "Unfortunately, we didn't manage to encrypt it with your GPG key: " + backupGPG.error;
+                    }
+                } else {
+                    msg += 'You should have received a GPG encrypted backup by mail.';
+                }
+                msg += '\n\nHere is also a clear text backup of your private key. You can store this in a secure storage, like KeePass:\n```\n';
+                msg += backupClear;
+                msg += '```\n\n\n**WARNING**: it will not be possible to easily recover this private key once this message disappear. Make sure you have a working backup!';
             }
-            msg += '\n\nHere is also a clear text backup of your private key. You can store this in a secure storage, like KeePass:\n```\n';
-            msg += backupClear;
-            msg += '```\n\n\n**WARNING**: it will not be possible to easily recover this private key once this message disappear. Make sure you have a working backup!';
         }
         this.sendEphemeralPost(msg, ctxArgs.channel_id);
         return {};
@@ -248,7 +237,7 @@ export default class Plugin {
                 return {error: {message: 'Noone in this channel has a public key to encrypt for!'}};
             }
 
-            const key = selectPrivkey(this.store!.getState());
+            const key = selectPrivkey(this.store.getState());
             if (key === null) {
                 return {error: {message: "Channel is encrypted but you didn't setup your E2EE key yet. Please run /e2ee init"}};
             }
@@ -261,14 +250,6 @@ export default class Plugin {
     }
 
     private async dispatch(arg: any) {
-        return this.store!.dispatch(arg);
+        return this.store.dispatch(arg);
     }
 }
-
-declare global {
-    interface Window {
-        registerPlugin(id: string, plugin: Plugin): void
-    }
-}
-
-window.registerPlugin(manifest.id, new Plugin());
