@@ -135,6 +135,10 @@ instead of the original one. We've done this to prevent accidental leakage of
 decrypted messages to the server. Indeed, when you click on the `Save` button,
 the content of the modified message is sent in plain text to the server.
 
+*Update*: this limitation is now fixed
+(https://github.com/mattermost/mattermost-webapp/pull/8849), and we will update
+the plugin once it lands in an official Mattermost release!
+
 ### Broken thread/reply UI
 
 Due to the previous limitation, when you reply to an encrypted message, the
