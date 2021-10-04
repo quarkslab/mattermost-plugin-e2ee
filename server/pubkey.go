@@ -144,9 +144,17 @@ func (p *Plugin) GetChannelMembersWithoutKeys(chanID string) ([]string, *model.A
 		if appErr != nil {
 			return ret, appErr
 		}
-		if !hasKey {
-			ret = append(ret, userID)
+		if hasKey {
+			continue
 		}
+		user, appErr := p.API.GetUser(userID)
+		if appErr != nil {
+			return ret, appErr
+		}
+		if user.DeleteAt != 0 {
+			continue
+		}
+		ret = append(ret, userID)
 	}
 	return ret, nil
 }

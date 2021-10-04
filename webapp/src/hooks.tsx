@@ -198,7 +198,7 @@ export default class E2EEHooks {
         if (error) {
             return {error};
         }
-        return {data: data.map((v: any) => v.id)};
+        return {data: data.filter((v: any) => v.delete_at === 0).map((v: any) => v.id)};
     }
 
     private async messageWillBePosted(post: Post): Promise<{post: Post} | {error: {message: string}}> {

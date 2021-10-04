@@ -130,6 +130,9 @@ func Test_pubkey_channelsMembersWithoutKeys(t *testing.T) {
 		},
 	}, nil)
 
+	mockAPI.On("GetUser", "user1").Return(&model.User{DeleteAt: 0}, nil)
+	mockAPI.On("GetUser", "user2").Return(&model.User{DeleteAt: 0}, nil)
+
 	mockAPI.On("KVGet", StoreKeyPubKey("user1")).Return([]byte(""), nil)
 	mockAPI.On("KVGet", StoreKeyPubKey("user2")).Return(nil, nil)
 
