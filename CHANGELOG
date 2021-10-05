@@ -1,3 +1,10 @@
+0.6.0 (05/10/2021)
+-----
+
+General:
+* Move to Github / CircleCI
+* Only encrypt messages for active users (exclude deleted ones)
+
 0.5.0 (29/09/2021)
 -----
 
