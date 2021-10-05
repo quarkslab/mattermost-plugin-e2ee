@@ -25,12 +25,39 @@ developer environment](#development).
 
 ## Installation
 
-You can download the latest release archive and upload it in Mattermost's
-system console: open `Main Menu > System Console > Plugins (BETA) > Plugin
-Management > Upload Plugin` to upload the archive. Upgrades can be performed by
-importing the latest release and confirming the overwriting of the duplicate plugin
-ID.
+You can download the [latest release
+archive](https://github.com/quarkslab/mattermost-plugin-e2ee/releases) and
+upload it in Mattermost's system console: open `Main Menu > System Console >
+Plugins (BETA) > Plugin Management > Upload Plugin` to upload the archive.
+Upgrades can be performed by importing the latest release and confirming the
+overwriting of the duplicate plugin ID.
 
+### Plugin configuration
+
+The plugin has a few configuration entries:
+
+### URL of the GPG key server
+
+It contains the URL of a GPG key server used to gather a GPG public key that
+belongs to the user. It uses the [HKP
+protocol](https://datatracker.ietf.org/doc/html/draft-shaw-openpgp-hkp-00) to
+search for a valid key for the user's email address. This public GPG key is
+then used to encrypt the user's [E2EE private key on
+key initialisation](#private-key-generation--backup). Leave empty if you don't
+want GPG encrypted backup of users' private keys.
+
+### Allow Bots to always post
+
+We prevent unencrypted messages to be posted on encrypted channels. This allows
+bot users to override this rule.
+
+### Custom messages types to always allow
+
+We prevent unencrypted messages to be posted on encrypted channels. This
+setting allows some custom message types to override this rule. The list should
+be comma separated. For instance, if you want the [Jitsi
+plugin](https://github.com/mattermost/mattermost-plugin-jitsi) to work even on
+encrypted channels, you can set `custom_jitsi` here.
 
 ## Quick start
 
@@ -135,6 +162,8 @@ instead of the original one. We've done this to prevent accidental leakage of
 decrypted messages to the server. Indeed, when you click on the `Save` button,
 the content of the modified message is sent in plain text to the server.
 
+Progress on this issue is tracked in [#2](https://github.com/quarkslab/mattermost-plugin-e2ee/issues/2).
+
 *Update*: this limitation is now fixed
 (https://github.com/mattermost/mattermost-webapp/pull/8849), and we will update
 the plugin once it lands in an official Mattermost release!
@@ -155,6 +184,8 @@ This will be fixed once we can fix the "update problem".
 For now, files & attachments are **not encrypted**. This will be done in future
 releases (if possible).
 
+Progress on this issue is tracked in [#7](https://github.com/quarkslab/mattermost-plugin-e2ee/issues/7).
+
 ### Webapp integrity
 
 In the attack model where the server is considered as compromised, nothing
@@ -174,7 +205,9 @@ known against a list of known hashes. Unfortunately (in this case), Mattermost
 plugins' Javascript code is "dynamically" loaded by the main Mattermost
 application, so bypassing this check in some ways.
 
-Fixing this is work-in-progress, and any help or suggestions would be appreciated!
+Fixing this is work-in-progress, and any help or suggestions would be
+appreciated! Please refer to ticket
+[#6](https://github.com/quarkslab/mattermost-plugin-e2ee/issues/6).
 
 ### Notifications from mentions are not working
 
@@ -187,6 +220,8 @@ them.
 
 There's no short-term plan to fix this, but any help or suggestion would be
 appreciated!
+
+Progress on this issue is tracked in [#1](https://github.com/quarkslab/mattermost-plugin-e2ee/issues/1).
 
 ## Development
 
