@@ -75,7 +75,11 @@ func (p *Plugin) setConfiguration(configuration *configuration) {
 	MsgTypes := strings.Split(strings.TrimSpace(configuration.AlwaysAllowMsgTypes), ",")
 	p.AlwaysAllowMsgTypes = make(map[string]bool)
 	for _, v := range MsgTypes {
-		p.AlwaysAllowMsgTypes[strings.TrimSpace(v)] = true
+		v = strings.TrimSpace(v)
+		if len(v) == 0 {
+			continue
+		}
+		p.AlwaysAllowMsgTypes[v] = true
 	}
 }
 
