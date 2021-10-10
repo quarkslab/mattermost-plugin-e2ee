@@ -4,9 +4,9 @@
     "description": "End-to-end encryption for Mattermost",
     "homepage_url": "https://github.com/quarkslab/mattermost-plugin-e2ee",
     "support_url": "https://github.com/quarkslab/mattermost-plugin-e2ee",
-    "release_notes_url": "https://github.com/quarkslab/mattermost-plugin-e2ee/releases/tag/v0.6.0",
+    "release_notes_url": "https://github.com/quarkslab/mattermost-plugin-e2ee/releases/tag/v0.6.1",
     "icon_path": "assets/logo.svg",
-    "version": "0.6.0",
+    "version": "0.6.1",
     "min_server_version": "5.12.0",
     "server": {
         "executables": {
