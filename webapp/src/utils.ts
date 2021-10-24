@@ -122,3 +122,35 @@ export function debouncedMergeMapArrayReducer<K, V>(funcres: Map<K, V>, keys: Ar
     }
     return ret;
 }
+
+// Based on mattermost-webapp/utils/utils.jsx
+const MIN_USERNAME_LENGTH = 3;
+const MAX_USERNAME_LENGTH = 22;
+const RESERVED_USERNAMES = [
+    'valet',
+    'all',
+    'channel',
+    'here',
+    'matterbot',
+    'system',
+    'e2ee',
+];
+
+export function isValidUsername(name: string): boolean {
+    if (!name) {
+        return false;
+    } else if (name.length < MIN_USERNAME_LENGTH || name.length > MAX_USERNAME_LENGTH) {
+        return false;
+    } else if (!(/^[a-z0-9.\-_]+$/).test(name)) {
+        return false;
+    } else if (!(/[a-z]/).test(name.charAt(0))) { //eslint-disable-line no-negated-condition
+        return false;
+    }
+    for (const reserved of RESERVED_USERNAMES) {
+        if (name === reserved) {
+            return false;
+        }
+    }
+
+    return true;
+}

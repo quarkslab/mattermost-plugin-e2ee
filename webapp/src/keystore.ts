@@ -63,7 +63,7 @@ export class KeyStore {
             req.onupgradeneeded = (evt) => {
                 const db = req.result;
                 if (!db.objectStoreNames.contains(objectStoreName)) {
-                    const objStore = db.createObjectStore(objectStoreName, {keyPath: 'name'});
+                    db.createObjectStore(objectStoreName, {keyPath: 'name'});
                 }
             };
         });

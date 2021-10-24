@@ -1,9 +1,10 @@
 import React from 'react';
 import {Store} from 'redux';
-import {getCurrentUserId} from 'mattermost-redux/selectors/entities/users';
+import {getCurrentUserId, makeGetProfilesInChannel, getUser} from 'mattermost-redux/selectors/entities/users';
 import {getCurrentChannelId} from 'mattermost-redux/selectors/entities/common';
 import {Post} from 'mattermost-redux/types/posts';
 import {Channel} from 'mattermost-redux/types/channels';
+import {UserProfile} from 'mattermost-redux/types/users';
 import {Client4} from 'mattermost-redux/client';
 import * as UserActions from 'mattermost-redux/actions/users';
 
@@ -18,15 +19,18 @@ import {selectPubkeys, selectPrivkey, selectKS} from './selectors';
 import {msgCache} from './msg_cache';
 import {AppPrivKey} from './privkey';
 import {encryptPost} from './e2ee_post';
-import {observeStore} from './utils';
+import {PublicKeyMaterial} from './e2ee';
+import {observeStore, isValidUsername} from './utils';
 import {MyActionResult, PubKeysState} from './types';
-import {pubkeyStore} from './pubkeys_storage';
+import {pubkeyStore, getNewChannelPubkeys, storeChannelPubkeys} from './pubkeys_storage';
 
 export default class E2EEHooks {
     store: Store
+    getProfilesInChannel: ReturnType<typeof makeGetProfilesInChannel>
 
     constructor(store: Store) {
         this.store = store;
+        this.getProfilesInChannel = makeGetProfilesInChannel();
 
         observeStore(store, selectPubkeys, this.checkPubkeys.bind(this));
         observeStore(store, selectPrivkey, async (s: any, v: any) => {
@@ -66,7 +70,7 @@ export default class E2EEHooks {
             if ((await pubkeyStore(userID, pubkey.data))) {
                 const chanID = getCurrentChannelId(store.getState());
                 // eslint-disable-next-line no-await-in-loop
-                const username = (await Client4.getUser(userID)).username;
+                const username = getUser(this.store.getState(), userID).username;
                 const msg = '**Warning**: public key of @' + username + ' has changed.';
                 this.sendEphemeralPost(msg, chanID);
             }
@@ -193,21 +197,22 @@ export default class E2EEHooks {
     }
 
     private async getUserIdsInChannel(chanID: string): Promise<MyActionResult> {
-        // @ts-ignore
         const {data, error} = await this.dispatch(UserActions.getProfilesInChannel(chanID, 0));
         if (error) {
             return {error};
         }
-        return {data: data.filter((v: any) => v.delete_at === 0).map((v: any) => v.id)};
+        const profilesInChannel = this.getProfilesInChannel(this.store.getState(), chanID, {active: true});
+
+        return {data: profilesInChannel.map((v: UserProfile) => v.id)};
     }
 
     private async messageWillBePosted(post: Post): Promise<{post: Post} | {error: {message: string}}> {
-        const {data: users, error: errUsers} = await this.getUserIdsInChannel(post.channel_id);
+        const chanID = post.channel_id;
+        const {data: users, error: errUsers} = await this.getUserIdsInChannel(chanID);
         if (errUsers) {
             return {error: {message: 'Unable to get the list of users in this channel: ' + errUsers}};
         }
 
-        const chanID = post.channel_id;
         const lastMethod = this.getLastEncryptionMethodForChannel(chanID);
 
         // @ts-ignore
@@ -242,7 +247,27 @@ export default class E2EEHooks {
                 return {error: {message: "Channel is encrypted but you didn't setup your E2EE key yet. Please run /e2ee init"}};
             }
             const orgMsg = post.message;
-            await encryptPost(post, key, pubkeys.values());
+
+            const pubkeyValues: Array<PublicKeyMaterial> = Array.from(pubkeys.values());
+
+            // Launch encryption in a promise, as in nominal operation we always need its result.
+            const encryptProm = encryptPost(post, key, pubkeyValues);
+
+            const newPubkeys = await getNewChannelPubkeys(chanID, pubkeys);
+            if (newPubkeys.length > 0) {
+                // Verify usernames consistency of this channel
+                if (!this.verifyUsernamesInChannel(chanID)) {
+                    return {error: {message: 'Inconsistency in the current channel users list. This can be due to a malicious/compromised server. Refusing to encrypt messages!'}};
+                }
+                let msg = 'Messages are now encrypted for these new recipients:';
+                for (const [userID, _] of newPubkeys) {
+                    msg += ' @' + getUser(this.store.getState(), userID).username;
+                }
+                this.sendEphemeralPost(msg, chanID);
+            }
+            await storeChannelPubkeys(chanID, pubkeyValues);
+
+            await encryptProm;
             msgCache.addMine(post, orgMsg);
         }
 
@@ -252,4 +277,24 @@ export default class E2EEHooks {
     private async dispatch(arg: any) {
         return this.store.dispatch(arg);
     }
+
+    private verifyUsernamesInChannel(chanID: string): boolean {
+        // Verify that the same username isn't used twice, and that none of
+        // them are empty. A compromised server could do this to trick warning
+        // messages.
+        const users = this.getProfilesInChannel(this.store.getState(), chanID, {active: true});
+        const usernames = new Set();
+        for (const user of users) {
+            const username = user.username;
+            if (!isValidUsername(username)) {
+                return false;
+            }
+            if (usernames.has(username)) {
+                return false;
+            }
+            usernames.add(username);
+        }
+        return true;
+    }
 }
+
