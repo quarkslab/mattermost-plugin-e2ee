@@ -1,6 +1,6 @@
 import React from 'react';
 import {Store} from 'redux';
-import {getCurrentUserId, makeGetProfilesInChannel, getUser} from 'mattermost-redux/selectors/entities/users';
+import {getCurrentUser, getCurrentUserId, makeGetProfilesInChannel, getUser} from 'mattermost-redux/selectors/entities/users';
 import {getCurrentChannelId} from 'mattermost-redux/selectors/entities/common';
 import {Post} from 'mattermost-redux/types/posts';
 import {Channel} from 'mattermost-redux/types/channels';
@@ -12,18 +12,20 @@ import Icon from './components/icon';
 import {getPubKeys, getChannelEncryptionMethod, sendEphemeralPost, openImportModal} from './actions';
 import {EncrStatutTypes, EventTypes, PubKeyTypes} from './action_types';
 import {APIClient, GPGBackupDisabledError} from './client';
-import {E2EE_CHAN_ENCR_METHOD_NONE, E2EE_CHAN_ENCR_METHOD_P2P} from './constants';
+import {E2EE_CHAN_ENCR_METHOD_NONE, E2EE_CHAN_ENCR_METHOD_P2P, E2EE_POST_TYPE} from './constants';
 // eslint-disable-next-line import/no-unresolved
 import {PluginRegistry, ContextArgs} from './types/mattermost-webapp';
 import {selectPubkeys, selectPrivkey, selectKS} from './selectors';
 import {msgCache} from './msg_cache';
 import {AppPrivKey} from './privkey';
-import {encryptPost} from './e2ee_post';
+import {encryptPost, decryptPost} from './e2ee_post';
 import {PublicKeyMaterial} from './e2ee';
 import {observeStore, isValidUsername} from './utils';
 import {MyActionResult, PubKeysState} from './types';
 import {pubkeyStore, getNewChannelPubkeys, storeChannelPubkeys} from './pubkeys_storage';
 import {getE2EEPostUpdateSupported} from './compat';
+import {shouldNotify} from './notifications';
+import {sendDesktopNotification} from './notification_actions';
 
 export default class E2EEHooks {
     store: Store
@@ -54,6 +56,7 @@ export default class E2EEHooks {
 
         registry.registerWebSocketEventHandler('custom_com.quarkslab.e2ee_channelStateChanged', this.channelStateChanged.bind(this));
         registry.registerWebSocketEventHandler('custom_com.quarkslab.e2ee_newPubkey', this.onNewPubKey.bind(this));
+        registry.registerWebSocketEventHandler('posted', this.onPosted.bind(this));
         registry.registerReconnectHandler(this.onReconnect.bind(this));
 
         registry.registerChannelHeaderButtonAction(
@@ -63,6 +66,44 @@ export default class E2EEHooks {
             'Toggle channel encryption',
             'Toggle channel encryption',
         );
+    }
+
+    private async onPosted(message: any) {
+        // Decrypt message and parse notifications, if asking for it.
+        const curUser = getCurrentUser(this.store.getState());
+        if (curUser.notify_props.desktop === 'none') {
+            return;
+        }
+        try {
+            const post = JSON.parse(message.data.post);
+            if (post.type !== E2EE_POST_TYPE) {
+                return;
+            }
+            const state = this.store.getState();
+            const privkey = selectPrivkey(state);
+            if (privkey === null) {
+                return;
+            }
+            let decrMsg = msgCache.get(post);
+            if (decrMsg === null) {
+                const sender_uid = post.user_id;
+                const {data, error} = await this.dispatch(getPubKeys([sender_uid]));
+                if (error) {
+                    throw error;
+                }
+                const senderkey = data.get(sender_uid) || null;
+                if (senderkey === null) {
+                    return;
+                }
+                decrMsg = await decryptPost(post.props.e2ee, senderkey, privkey);
+                msgCache.addDecrypted(post, decrMsg);
+            }
+            if (shouldNotify(decrMsg, curUser)) {
+                this.dispatch(sendDesktopNotification(post));
+            }
+        } catch (e) {
+            // Ignore notification errors
+        }
     }
 
     private async checkPubkeys(store: Store, pubkeys: PubKeysState) {

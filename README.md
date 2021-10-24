@@ -179,17 +179,17 @@ Fixing this is work-in-progress, and any help or suggestions would be
 appreciated! Please refer to ticket
 [#6](https://github.com/quarkslab/mattermost-plugin-e2ee/issues/6).
 
-### Notifications from mentions are not working
+### Initial support for notifications from mentions
 
-Mentions (like `@all`) in encrypted messages aren't working for now. The
-mechanism that triggers notification seems to require the server to be able to
-process sent messages, which isn't obviously the case when this plugin is used.
+Mentions (like `@all`) in encrypted messages would display a notification, but
+with these limitations:
 
-There is also the issue that messages are only decrypted once we try to display
-them.
+* the notification sound might not be played, depending on the OS & platform
+* "activating" the notification would display the Mattermost application/tab,
+  but won't switch to the team/channel were the notification occured
 
-There's no short-term plan to fix this, but any help or suggestion would be
-appreciated!
+Fixing these issues could be done by being able to use the [notifyMe function
+from mattermost-webapp](), which could be [exposed to plugins]().
 
 Progress on this issue is tracked in [#1](https://github.com/quarkslab/mattermost-plugin-e2ee/issues/1).
 
