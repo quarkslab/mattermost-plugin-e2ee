@@ -13,6 +13,7 @@ import E2EEPost from './components/e2ee_post';
 import {PluginRegistry} from './types/mattermost-webapp';
 import E2EEHooks from './hooks';
 import E2EEImportModal from './components/e2ee_import_modal';
+import {setE2EEPostUpdateSupported} from './compat';
 
 const b64 = require('base64-arraybuffer');
 
@@ -20,6 +21,8 @@ export default class Plugin {
     hooks?: E2EEHooks
 
     public async initialize(registry: PluginRegistry, store: Store<GlobalState, Action<Record<string, unknown>>>) {
+        setE2EEPostUpdateSupported(typeof registry.registerMessageWillBeUpdatedHook !== 'undefined');
+
         this.hooks = new E2EEHooks(store);
         this.hooks.register(registry);
 
