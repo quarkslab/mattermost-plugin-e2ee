@@ -149,36 +149,6 @@ Private messages work like the other channels, and the same commands can be used
 
 ## Known limitations
 
-### Unable to update messages
-
-Due to a [limitation in
-Mattermost](https://github.com/mattermost/mattermost-server/issues/18320), it
-is not possible (for now) for a webapp plugin to intercept message modifications.
-Thus, we are not able to encrypt the modified message before it is transmitted
-to the server.
-
-If you try to modify a message, you will be prompted with a warning message
-instead of the original one. We've done this to prevent accidental leakage of
-decrypted messages to the server. Indeed, when you click on the `Save` button,
-the content of the modified message is sent in plain text to the server.
-
-Progress on this issue is tracked in [#2](https://github.com/quarkslab/mattermost-plugin-e2ee/issues/2).
-
-*Update*: this limitation is now fixed
-(https://github.com/mattermost/mattermost-webapp/pull/8849), and we will update
-the plugin once it lands in an official Mattermost release!
-
-### Broken thread/reply UI
-
-Due to the previous limitation, when you reply to an encrypted message, the
-warning message discussed above will be shown instead of the decrypted one:
-
-<div align="center" width="100%">
-  <img width="60%" src="docs/thread_reply.png" />
-</div>
-
-This will be fixed once we can fix the "update problem".
-
 ### Files/attachments not encrypted
 
 For now, files & attachments are **not encrypted**. This will be done in future
@@ -222,6 +192,32 @@ There's no short-term plan to fix this, but any help or suggestion would be
 appreciated!
 
 Progress on this issue is tracked in [#1](https://github.com/quarkslab/mattermost-plugin-e2ee/issues/1).
+
+### Unable to update messages (Mattermost < 6.1)
+
+**Note**: this limitation only exists if you use Mattermost < 6.1
+
+Due to a [limitation in
+Mattermost](https://github.com/mattermost/mattermost-server/issues/18320), it
+is not possible (for now) for a webapp plugin to intercept message modifications.
+Thus, we are not able to encrypt the modified message before it is transmitted
+to the server.
+
+If you try to modify a message, you will be prompted with a warning message
+instead of the original one. We've done this to prevent accidental leakage of
+decrypted messages to the server. Indeed, when you click on the `Save` button,
+the content of the modified message is sent in plain text to the server.
+
+### Broken thread/reply UI
+
+**Note**: this limitation only exists if you use Mattermost < 6.1
+
+Due to the previous limitation, when you reply to an encrypted message, the
+warning message discussed above will be shown instead of the decrypted one:
+
+<div align="center" width="100%">
+  <img width="60%" src="docs/thread_reply.png" />
+</div>
 
 ## Development
 

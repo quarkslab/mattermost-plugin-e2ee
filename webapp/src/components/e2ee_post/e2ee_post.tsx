@@ -9,6 +9,7 @@ const {formatText, messageHtmlToComponent} = window.PostUtils;
 import {decryptPost} from 'e2ee_post';
 import {E2EEUnknownRecipient} from 'e2ee';
 import {msgCache} from 'msg_cache';
+import {getE2EEPostUpdateSupported} from 'compat';
 
 import {E2EEPostProps} from './index';
 import './e2ee_post.css';
@@ -34,7 +35,11 @@ export const E2EEPost: React.FC<E2EEPostProps> = (props) => {
             setHeaderClasses('e2ee_post_header e2ee__hidden');
             setPostClasses('e2ee_post_body e2ee__hidden');
         }
-        post.message = "WARNING: if you read this text, it's probably because you are trying to edit an encrypted message. This is currently not possible. Indeed, the text saved in this box will be saved on the server unencrypted. It is due to a limitation in what plugins can do in Mattermost that will hopefully be fixed.";
+        if (getE2EEPostUpdateSupported()) {
+            post.message = text;
+        } else {
+            post.message = "WARNING: if you read this text, it's probably because you are trying to edit an encrypted message. This is currently not possible. Indeed, the text saved in this box will be saved on the server unencrypted. It is due to a limitation in what plugins can do in Mattermost that will hopefully be fixed.";
+        }
     };
 
     const setMsgError = (text: string) => {
@@ -110,5 +115,8 @@ E2EEPost.propTypes = {
 
         // @ts-ignore
         getPubKeys: PropTypes.func.isRequired,
+
+        // @ts-ignore
+        updatePost: PropTypes.func.isRequired,
     },
 };

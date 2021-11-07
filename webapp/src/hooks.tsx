@@ -23,6 +23,7 @@ import {PublicKeyMaterial} from './e2ee';
 import {observeStore, isValidUsername} from './utils';
 import {MyActionResult, PubKeysState} from './types';
 import {pubkeyStore, getNewChannelPubkeys, storeChannelPubkeys} from './pubkeys_storage';
+import {getE2EEPostUpdateSupported} from './compat';
 
 export default class E2EEHooks {
     store: Store
@@ -46,6 +47,9 @@ export default class E2EEHooks {
 
     register(registry: PluginRegistry) {
         registry.registerMessageWillBePostedHook(this.messageWillBePosted.bind(this));
+        if (getE2EEPostUpdateSupported()) {
+            registry.registerMessageWillBeUpdatedHook(this.messageWillBeUpdated.bind(this));
+        }
         registry.registerSlashCommandWillBePostedHook(this.slashCommand.bind(this));
 
         registry.registerWebSocketEventHandler('custom_com.quarkslab.e2ee_channelStateChanged', this.channelStateChanged.bind(this));
@@ -206,7 +210,7 @@ export default class E2EEHooks {
         return {data: profilesInChannel.map((v: UserProfile) => v.id)};
     }
 
-    private async messageWillBePosted(post: Post): Promise<{post: Post} | {error: {message: string}}> {
+    private async encryptPost(post: Post, isUpdate = false): Promise<{post: Post} | {error: {message: string}}> {
         const chanID = post.channel_id;
         const {data: users, error: errUsers} = await this.getUserIdsInChannel(chanID);
         if (errUsers) {
@@ -268,10 +272,28 @@ export default class E2EEHooks {
             await storeChannelPubkeys(chanID, pubkeyValues);
 
             await encryptProm;
-            msgCache.addMine(post, orgMsg);
+            if (isUpdate) {
+                msgCache.addUpdated(post, orgMsg);
+            } else {
+                msgCache.addMine(post, orgMsg);
+            }
         }
 
         return {post};
+    }
+
+    private async messageWillBePosted(post: Post): Promise<{post: Post} | {error: {message: string}}> {
+        return this.encryptPost(post);
+    }
+
+    private async messageWillBeUpdated(post: Post): Promise<{post: Post} | {error: {message: string}}> {
+        if ((typeof post.props !== 'undefined') && (typeof post.props.e2ee !== 'undefined')) {
+            delete post.props.e2ee;
+        }
+        if (post.message === '') {
+            return {post};
+        }
+        return this.encryptPost(post, true /* isUpdate */);
     }
 
     private async dispatch(arg: any) {
