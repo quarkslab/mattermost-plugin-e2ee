@@ -68,10 +68,10 @@ test('e2ee/pubidCache', async () => {
     const own = await PrivateKeyMaterial.create();
     const pub = own.pubKey();
 
-    const id = pub.id();
+    const id = await pub.id();
     const orgDigest = subtle.digest;
     subtle.digest = jest.fn();
-    const id2 = pub.id();
+    const id2 = await pub.id();
     expect(subtle.digest).not.toHaveBeenCalled();
     subtle.digest = orgDigest;
     expect(id).toStrictEqual(id2);
