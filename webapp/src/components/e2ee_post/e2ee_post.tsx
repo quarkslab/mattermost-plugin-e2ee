@@ -32,7 +32,7 @@ export const E2EEPost: React.FC<E2EEPostProps> = (props) => {
             setPostClasses('e2ee_post_body');
         } else {
             setHeaderClasses('e2ee_post_header e2ee__hidden');
-            setPostClasses('e2ee_post e2ee__hidden');
+            setPostClasses('e2ee_post_body e2ee__hidden');
         }
         post.message = "WARNING: if you read this text, it's probably because you are trying to edit an encrypted message. This is currently not possible. Indeed, the text saved in this box will be saved on the server unencrypted. It is due to a limitation in what plugins can do in Mattermost that will hopefully be fixed.";
     };
@@ -54,6 +54,7 @@ export const E2EEPost: React.FC<E2EEPostProps> = (props) => {
             return;
         }
 
+        setMsgText('');
         setPostClasses('e2ee_post_body e2ee_post_body__decrypting');
         const uid = post.user_id;
         actions.getPubKeys([uid]).
