@@ -198,8 +198,8 @@ Progress on this issue is tracked in [#1](https://github.com/quarkslab/mattermos
 **Note**: this limitation only exists if you use Mattermost < 6.1
 
 Due to a [limitation in
-Mattermost](https://github.com/mattermost/mattermost-server/issues/18320), it
-is not possible (for now) for a webapp plugin to intercept message modifications.
+Mattermost < 6.1](https://github.com/mattermost/mattermost-server/issues/18320), it
+is not possible in these versions for a webapp plugin to intercept message modifications.
 Thus, we are not able to encrypt the modified message before it is transmitted
 to the server.
 
@@ -208,7 +208,7 @@ instead of the original one. We've done this to prevent accidental leakage of
 decrypted messages to the server. Indeed, when you click on the `Save` button,
 the content of the modified message is sent in plain text to the server.
 
-### Broken thread/reply UI
+### Broken thread/reply UI (Mattermost < 6.1)
 
 **Note**: this limitation only exists if you use Mattermost < 6.1
 
