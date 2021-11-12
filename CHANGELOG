@@ -1,3 +1,9 @@
+0.8.1 (12/11/2021)
+-----
+
+webapp:
+* fix notifications: display the actual decrypted message, and don't (extra) notify on DM/PM
+
 0.8.0 (12/11/2021)
 -----
 
