@@ -2,6 +2,7 @@ import React from 'react';
 import {Store} from 'redux';
 import {getCurrentUser, getCurrentUserId, makeGetProfilesInChannel, getUser} from 'mattermost-redux/selectors/entities/users';
 import {getCurrentChannelId} from 'mattermost-redux/selectors/entities/common';
+import {getChannel} from 'mattermost-redux/selectors/entities/channels';
 import {Post} from 'mattermost-redux/types/posts';
 import {Channel} from 'mattermost-redux/types/channels';
 import {UserProfile} from 'mattermost-redux/types/users';
@@ -80,6 +81,13 @@ export default class E2EEHooks {
                 return;
             }
             const state = this.store.getState();
+            const channel = getChannel(state, post.channel_id);
+            if (channel.type === 'D' || channel.type === 'G') {
+                // The mattermost system already sends a notification (but w/o
+                // the decrypted message. Nothing we can do about it for now as
+                // this callback is called **after** this notification happens).
+                return;
+            }
             const privkey = selectPrivkey(state);
             if (privkey === null) {
                 return;
@@ -99,7 +107,7 @@ export default class E2EEHooks {
                 msgCache.addDecrypted(post, decrMsg);
             }
             if (shouldNotify(decrMsg, curUser)) {
-                this.dispatch(sendDesktopNotification(post));
+                this.dispatch(sendDesktopNotification(post, decrMsg));
             }
         } catch (e) {
             // Ignore notification errors

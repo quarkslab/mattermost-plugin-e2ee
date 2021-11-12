@@ -17,7 +17,7 @@ import {showNotification} from 'notifications';
 
 const NOTIFY_TEXT_MAX_LENGTH = 50;
 
-export function sendDesktopNotification(post) {
+export function sendDesktopNotification(post, msg) {
     return async (dispatch, getState) => {
         const state = getState();
         const currentUserId = getCurrentUserId(state);
@@ -62,7 +62,7 @@ export function sendDesktopNotification(post) {
             title = channel.display_name;
         }
 
-        let notifyText = post.message;
+        let notifyText = msg;
         if (notifyText.length > NOTIFY_TEXT_MAX_LENGTH) {
             notifyText = notifyText.substring(0, NOTIFY_TEXT_MAX_LENGTH - 1) + '...';
         }
