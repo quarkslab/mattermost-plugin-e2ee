@@ -196,9 +196,9 @@ plugins](https://github.com/mattermost/mattermost-webapp/blob/ce2962001c11d7a55c
 
 Progress on this issue is tracked in [#1](https://github.com/quarkslab/mattermost-plugin-e2ee/issues/1).
 
-### Unable to update messages (Mattermost < 6.1)
+### Unable to update messages (Mattermost < 6.1 && >= 6.4)
 
-**Note**: this limitation only exists if you use Mattermost < 6.1
+**Note**: this limitation only exists if you use Mattermost < 6.1 or >= 6.4
 
 Due to a [limitation in
 Mattermost < 6.1](https://github.com/mattermost/mattermost-server/issues/18320), it
@@ -206,14 +206,31 @@ is not possible in these versions for a webapp plugin to intercept message modif
 Thus, we are not able to encrypt the modified message before it is transmitted
 to the server.
 
-If you try to modify a message, you will be prompted with a warning message
-instead of the original one. We've done this to prevent accidental leakage of
-decrypted messages to the server. Indeed, when you click on the `Save` button,
-the content of the modified message is sent in plain text to the server.
+For Mattermost versions >= 6.4, there are two problems. The first one is for
+versions 6.4 & 6.5. Indeed, [this
+commit](https://github.com/mattermost/mattermost-webapp/commit/8a925e8f95f9a8e9b81512de8203c7163c5d1eea)
+introduces a "regression" (whether this is a regression or not depends on the
+semantics of [this plugin
+interface](https://developers.mattermost.com/integrate/plugins/webapp/reference/#registerMessageWillBeUpdatedHook),
+which isn't clear), and removes posts "properties" while updating messages,
+which we use to store the actual encrypted message. That's why modifying a
+message won't work for these two versions. That being said, it won't leak the
+decrypted message to the server, so we keep it this way not to break
+threads/replies (see below). The second one is for versions >= 6.6. The editing
+post widget has been fully rewritten with an "inline" mode. Unfortunately, this
+rewrite completely forgot to call update hooks, so we are back to the pre-6.1
+behavior :(
 
-### Broken thread/reply UI (Mattermost < 6.1)
+So, for versions < 6.1 and >= 6.6, if you try to modify a message, you will be
+prompted with a warning message instead of the original one. We've done this to
+prevent accidental leakage of decrypted messages to the server. Indeed, when
+you click on the `Save` button, the content of the modified message is sent in
+plain text to the server.
 
-**Note**: this limitation only exists if you use Mattermost < 6.1
+### Broken thread/reply UI (Mattermost < 6.1 && >= 6.6)
+
+**Note**: this limitation only exists if you use Mattermost < 6.1 or >= 6.6
+(see above for explanation about this regression).
 
 Due to the previous limitation, when you reply to an encrypted message, the
 warning message discussed above will be shown instead of the decrypted one:
