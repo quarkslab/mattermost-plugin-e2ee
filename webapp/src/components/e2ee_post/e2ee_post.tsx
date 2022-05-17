@@ -23,14 +23,21 @@ export const E2EEPost: React.FC<E2EEPostProps> = (props) => {
 
     const formatOptions = {
         atMentions: true,
+        editedAt: post.edit_at,
+        postId: post.id,
+    };
+    const componentOptions = {
+        editedAt: post.edit_at,
+        postId: post.id,
+        channelId: post.channel_id,
     };
 
     const setMsgSuccess = (text: string) => {
         if (text.length > 0) {
-            const ftxt = messageHtmlToComponent(formatText(text, formatOptions));
+            const ftxt = messageHtmlToComponent(formatText(text, formatOptions), false, componentOptions);
             setMsgText(ftxt);
             setHeaderClasses('e2ee_post_header');
-            setPostClasses('e2ee_post_body');
+            setPostClasses('e2ee_post_body post--edited');
         } else {
             setHeaderClasses('e2ee_post_header e2ee__hidden');
             setPostClasses('e2ee_post_body e2ee__hidden');
