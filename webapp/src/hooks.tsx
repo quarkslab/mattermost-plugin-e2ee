@@ -342,7 +342,19 @@ export default class E2EEHooks {
         if (post.message === '') {
             return {post};
         }
-        return this.encryptPost(post, true /* isUpdate */);
+        const ret = await this.encryptPost(post, true /* isUpdate */);
+        // HACK: we need to set a different message than the previous one,
+        // otherwise the server won't considered this message as updated, and
+        // we won't see the "Edited" mention.
+        // Having twice in a row the same 2**32 integer has a probability of
+        // 2**-32.
+        //
+        // @ts-ignore
+        if (typeof ret.post !== 'undefined') {
+            // @ts-ignore
+            ret.post.message += ' ' + Math.floor((2 ** 32) * Math.random()).toString();
+        }
+        return ret;
     }
 
     private async dispatch(arg: any) {
