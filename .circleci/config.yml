@@ -56,14 +56,32 @@ commands:
           paths: [<< parameters.gobin >>/golangci-lint]
 
 aliases:
-- &restore_cache
+- &restore_cache_go
   restore_cache:
-    key: go-mod-v1-{{ checksum "go.sum" }}
-- &save_cache
+    keys:
+      - go-mod-v1-{{ .Branch }}-{{ checksum "go.sum" }}
+      - go-mod-v1-{{ .Branch }}
+      - go-mod-v1
+- &save_cache_go
   save_cache:
-    key: go-mod-v1-{{ checksum "go.sum" }}
+    key: go-mod-v1-{{ .Branch }}-{{ checksum "go.sum" }}
     paths:
     - "/go/pkg/mod"
+- &restore_cache_npm
+  restore_cache:
+    keys:
+      - npm-v1-{{ .Branch }}-{{ checksum "webapp/package-lock.json" }}
+      - npm-v1-{{ .Branch }}
+      - npm-v1
+- &install_npm
+  run:
+    command: cd webapp && npm install
+    no_output_timeout: 60m
+- &save_cache_npm
+  save_cache:
+    key: npm-v1-{{ .Branch }}-{{ checksum "webapp/package-lock.json" }}
+    paths:
+    - "webapp/node_modules"
 
 jobs:
   lint:
@@ -73,10 +91,14 @@ jobs:
     steps:
       - checkout
       - install-golangci-lint
-      - *restore_cache
+      - *restore_cache_go
+      - *restore_cache_npm
+      - *install_npm
+      - *save_cache_npm
       - run:
           name: Checking code style
           command: make check-style
+      - *save_cache_go
       - run: go mod tidy -v
       - run:
           name: Checking diff of go mod files
@@ -87,22 +109,31 @@ jobs:
           name: Checking diff of generated manifest files
           command: |
             git --no-pager diff --exit-code *manifest.* || (echo "Please run \"make apply\" and commit the changes in the generated manifests." && exit 1)
-      - *save_cache
+      - *save_cache_go
 
   test:
     executor:
       name: default
     steps:
       - checkout
-      - *restore_cache
-      - run: make test
-      - *save_cache
+      - *restore_cache_go
+      - *restore_cache_npm
+      - *install_npm
+      - *save_cache_npm
+      - run:
+          command: make test
+          name: Tests
+      - *save_cache_go
 
   build:
     executor:
       name: default
     steps:
       - checkout
+      - *restore_cache_go
+      - *restore_cache_npm
+      - *install_npm
+      - *save_cache_npm
       - run:
           name: Building Plugin Bundle
           command: make dist
@@ -122,6 +153,7 @@ jobs:
             - "release-notes.md"
       - store_artifacts:
           path: dist
+      - *save_cache_go
 
   deploy-release-github:
     docker:
