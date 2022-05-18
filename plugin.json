@@ -6,7 +6,7 @@
     "support_url": "https://github.com/quarkslab/mattermost-plugin-e2ee",
     "release_notes_url": "https://github.com/quarkslab/mattermost-plugin-e2ee/releases/tag/v0.8.1",
     "icon_path": "assets/logo.svg",
-    "version": "0.8.1",
+    "version": "0.9.0",
     "min_server_version": "5.37.0",
     "server": {
         "executables": {
