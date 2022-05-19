@@ -41,3 +41,6 @@ export async function decryptPost(e2ee: EncryptedP2PMessageJSON, senderkey: Publ
     return new UtilTextDecoder('utf-8').decode(msg);
 }
 
+export function isEncryptedPost(post: Post): boolean {
+    return (typeof post.props !== 'undefined') && (typeof post.props.e2ee !== 'undefined');
+}
