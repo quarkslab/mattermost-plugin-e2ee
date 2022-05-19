@@ -19,7 +19,7 @@ import {PluginRegistry, ContextArgs} from './types/mattermost-webapp';
 import {selectPubkeys, selectPrivkey, selectKS} from './selectors';
 import {msgCache} from './msg_cache';
 import {AppPrivKey} from './privkey';
-import {encryptPost, decryptPost} from './e2ee_post';
+import {encryptPost, decryptPost, isEncryptedPost} from './e2ee_post';
 import {PublicKeyMaterial} from './e2ee';
 import {observeStore, isValidUsername} from './utils';
 import {MyActionResult, PubKeysState} from './types';
@@ -261,11 +261,6 @@ export default class E2EEHooks {
 
     private async encryptPost(post: Post, isUpdate = false): Promise<{post: Post} | {error: {message: string}}> {
         const chanID = post.channel_id;
-        const {data: users, error: errUsers} = await this.getUserIdsInChannel(chanID);
-        if (errUsers) {
-            return {error: {message: 'Unable to get the list of users in this channel: ' + errUsers}};
-        }
-
         const lastMethod = this.getLastEncryptionMethodForChannel(chanID);
 
         // @ts-ignore
@@ -286,6 +281,11 @@ export default class E2EEHooks {
 
         this.setLastEncryptionMethodForChannel(chanID, method);
         if (method === 'p2p') {
+            const {data: users, error: errUsers} = await this.getUserIdsInChannel(chanID);
+            if (errUsers) {
+                return {error: {message: 'Unable to get the list of users in this channel: ' + errUsers}};
+            }
+
             // @ts-ignore
             const {data: pubkeys, error: errPK} = await this.dispatch(getPubKeys(users));
             if (errPK) {
@@ -336,7 +336,7 @@ export default class E2EEHooks {
     }
 
     private async messageWillBeUpdated(post: Post): Promise<{post: Post} | {error: {message: string}}> {
-        if ((typeof post.props !== 'undefined') && (typeof post.props.e2ee !== 'undefined')) {
+        if (isEncryptedPost(post)) {
             delete post.props.e2ee;
         }
         if (post.message === '') {
@@ -350,7 +350,7 @@ export default class E2EEHooks {
         // 2**-32.
         //
         // @ts-ignore
-        if (typeof ret.post !== 'undefined') {
+        if ((typeof ret.post !== 'undefined') && isEncryptedPost(ret.post)) {
             // @ts-ignore
             ret.post.message += ' ' + Math.floor((2 ** 32) * Math.random()).toString();
         }
