@@ -16,7 +16,7 @@ const (
 	helpTextHeader = "###### Mattermost E2EE Plugin - Slash command help\n"
 	helpText       = `
 * |/e2ee help| - print this help message.
-* |/e2ee init [--force] [gpg key fingerprint]| - initialize E2EE for your account. This will generate a new key for your session. Use --force to erase an exisiting key.
+* |/e2ee init [--force] [gpg key fingerprint]| - initialize E2EE for your account. This will generate a new key for your session. Use --force to erase an existing key.
 * |/e2ee start| - encrypt the messages you send in this channel.
 * |/e2ee stop| - do not encrypt the messages you send in this channel.
 * |/e2ee import| - import your private key into this device.
