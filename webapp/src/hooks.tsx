@@ -316,7 +316,9 @@ export default class E2EEHooks {
                 for (const [userID, _] of newPubkeys) {
                     msg += ' @' + getUser(this.store.getState(), userID).username;
                 }
+
                 this.sendEphemeralPost(msg, chanID);
+                this.sendEphemeralPost('(attachments are not encrypted and are sent in plaintext)', chanID);
             }
             await storeChannelPubkeys(chanID, pubkeyValues);
 
